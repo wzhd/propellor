@@ -152,7 +152,11 @@ setSticky f = modifyFileMode f $ addModes [stickyMode]
  - as writeFile.
  -}
 writeFileProtected :: FilePath -> String -> IO ()
-writeFileProtected file content = withUmask 0o0077 $
+writeFileProtected file content = writeFileProtected' file 
+	(\h -> hPutStr h content)
+
+writeFileProtected' :: FilePath -> (Handle -> IO ()) -> IO ()
+writeFileProtected' file writer = withUmask 0o0077 $
 	withFile file WriteMode $ \h -> do
 		void $ tryIO $ modifyFileMode file $ removeModes otherGroupModes
-		hPutStr h content
+		writer h

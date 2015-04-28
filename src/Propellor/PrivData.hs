@@ -1,5 +1,6 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Propellor.PrivData (
 	withPrivData,
@@ -26,6 +27,9 @@ import Control.Monad.IfElse
 import "mtl" Control.Monad.Reader
 import qualified Data.Map as M
 import qualified Data.Set as S
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import Data.String
 
 import Propellor.Types
 import Propellor.Types.PrivData
@@ -38,10 +42,10 @@ import Utility.PartialPrelude
 import Utility.Exception
 import Utility.Tmp
 import Utility.SafeCommand
-import Utility.Misc
 import Utility.FileMode
 import Utility.Env
 import Utility.Table
+import Utility.FileSystemEncoding
 
 -- | Allows a Property to access the value of a specific PrivDataField,
 -- for use in a specific Context or HostContext.
@@ -141,11 +145,12 @@ getPrivData field context = M.lookup (field, context)
 setPrivData :: PrivDataField -> Context -> IO ()
 setPrivData field context = do
 	putStrLn "Enter private data on stdin; ctrl-D when done:"
-	setPrivDataTo field context =<< hGetContentsStrict stdin
+	setPrivDataTo field context =<< B.getContents
 
 dumpPrivData :: PrivDataField -> Context -> IO ()
 dumpPrivData field context =
-	maybe (error "Requested privdata is not set.") putStrLn
+	maybe (error "Requested privdata is not set.")
+		(\b -> B.putStr b >> putStr "\n")
 		=<< (getPrivData field context <$> decryptPrivData)
 
 editPrivData :: PrivDataField -> Context -> IO ()
@@ -153,11 +158,11 @@ editPrivData field context = do
 	v <- getPrivData field context <$> decryptPrivData
 	v' <- withTmpFile "propellorXXXX" $ \f h -> do
 		hClose h
-		maybe noop (writeFileProtected f) v
+		maybe noop (\b -> writeFileProtected' f (\o -> B.hPut o b)) v
 		editor <- getEnvDefault "EDITOR" "vi"
 		unlessM (boolSystem editor [File f]) $
 			error "Editor failed; aborting."
-		readFile f
+		B.readFile f
 	setPrivDataTo field context v'
 
 listPrivDataFields :: [Host] -> IO ()
@@ -184,7 +189,7 @@ listPrivDataFields hosts = do
 	mkhostmap host mkv = M.fromList $ map (\(f, d, c) -> ((f, mkHostContext c (hostName host)), mkv d)) $
 		S.toList $ _privData $ hostInfo host
 	usedby = M.unionsWith (++) $ map (\h -> mkhostmap h $ const $ [hostName h]) hosts
-	wantedmap = M.fromList $ zip (M.keys usedby) (repeat "")
+	wantedmap = M.fromList $ zip (M.keys usedby) (repeat ("" :: String))
 	descmap = M.unions $ map (\h -> mkhostmap h id) hosts
 	section desc = putStrLn $ "\n" ++ desc
 	showtable rows = do
@@ -195,16 +200,18 @@ setPrivDataTo field context value = do
 	makePrivDataDir
 	m <- decryptPrivData
 	let m' = M.insert (field, context) (chomp value) m
-	gpgEncrypt privDataFile (show m')
+	gpgEncrypt privDataFile $ fromString $ show m'
 	putStrLn "Private data set."
 	void $ boolSystem "git" [Param "add", File privDataFile]
   where
-	chomp s
-		| end s == "\n" = chomp (beginning s)
-		| otherwise = s
+	-- remove any number of trailing newlines
+	chomp b = fst $ B.spanEnd (\w8 -> B.singleton w8 == "\n") b
 
 decryptPrivData :: IO PrivMap
-decryptPrivData = fromMaybe M.empty . readish <$> gpgDecrypt privDataFile
+decryptPrivData = do
+	b <- gpgDecrypt privDataFile
+	return $ M.map fromString $ fromMaybe M.empty $ readish $ decodeBS $
+		L.fromChunks [b]
 
 makePrivDataDir :: IO ()
 makePrivDataDir = createDirectoryIfMissing False privDataDir

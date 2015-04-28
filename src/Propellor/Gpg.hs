@@ -6,6 +6,7 @@ import System.FilePath
 import System.Directory
 import Data.Maybe
 import Data.List.Utils
+import qualified Data.ByteString as B
 
 import Propellor.PrivData.Paths
 import Propellor.Message
@@ -96,15 +97,22 @@ gitCommit ps = do
 	ps' <- gpgSignParams ps
 	boolSystem "git" (Param "commit" : ps')
 
-gpgDecrypt :: FilePath -> IO String
+gpgDecrypt :: FilePath -> IO B.ByteString
 gpgDecrypt f = ifM (doesFileExist f)
-	( readProcess "gpg" ["--decrypt", f]
-	, return ""
+	( do
+		let p = (proc "gpg" ["--decrypt", f])
+			{ std_out = CreatePipe
+			}
+		(Nothing, Just h, Nothing, pid) <- createProcess p
+		b <- B.hGetContents h
+		forceSuccessProcess p pid
+		return b
+	, return B.empty
 	)
 
 -- Encrypt file to all keys in propellor's keyring.
-gpgEncrypt :: FilePath -> String -> IO ()
-gpgEncrypt f s = do
+gpgEncrypt :: FilePath -> B.ByteString -> IO ()
+gpgEncrypt f b = withTmpFileIn (takeDirectory f) (takeFileName f) $ \_ h -> do
 	keyids <- listPubKeys
 	let opts =
 		[ "--default-recipient-self"
@@ -112,8 +120,11 @@ gpgEncrypt f s = do
 		, "--encrypt"
 		, "--trust-model", "always"
 		] ++ concatMap (\k -> ["--recipient", k]) keyids
-	encrypted <- writeReadProcessEnv "gpg" opts
-		Nothing
-		(Just $ flip hPutStr s)
-		Nothing
-	viaTmp writeFile f encrypted
+	let p = (proc "gpg" opts)
+		{ std_in = CreatePipe
+		, std_out = UseHandle h
+		}
+	(Just feedh, Nothing, Nothing, pid) <- createProcess p
+	B.hPut feedh b
+	hClose feedh
+	forceSuccessProcess p pid
