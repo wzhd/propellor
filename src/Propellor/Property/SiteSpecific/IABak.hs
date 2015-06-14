@@ -15,6 +15,13 @@ repo = "https://github.com/ArchiveTeam/IA.BAK/"
 userrepo :: String
 userrepo = "git@gitlab.com:archiveteam/IA.bak.users.git"
 
+publicFace :: Property HasInfo
+publicFace = propertyList "iabak public face" $ props
+	& Git.cloned (User "root") repo "/usr/local/IA.BAK" (Just "server")
+	& Apt.serviceInstalledRunning "apache2"
+	& Cron.niceJob "graph-gen" (Cron.Times "*/10 * * * *") (User "root") "/"
+		"/usr/local/IA.BAK/web/graph-gen.sh"
+
 gitServer :: [Host] -> Property HasInfo
 gitServer knownhosts = propertyList "iabak git server" $ props
 	& Git.cloned (User "root") repo "/usr/local/IA.BAK" (Just "server")
@@ -28,7 +35,7 @@ gitServer knownhosts = propertyList "iabak git server" $ props
 	& Cron.niceJob "shardstats" (Cron.Times "*/30 * * * *") (User "root") "/"
 		"/usr/local/IA.BAK/shardstats-all"
 	& Cron.niceJob "shardmaint" Cron.Daily (User "root") "/"
-		"/usr/local/IA.BAK/shardmaint"
+		"/usr/local/IA.BAK/shardmaint-fast; /usr/local/IA.BAK/shardmaint"
 
 registrationServer :: [Host] -> Property HasInfo
 registrationServer knownhosts = propertyList "iabak registration server" $ props
@@ -56,12 +63,14 @@ graphiteServer = propertyList "iabak graphite server" $ props
 		[ "[carbon]"
 		, "pattern = ^carbon\\."
 		, "retentions = 60:90d"
-		, "[iabak]"
+		, "[iabak-connections]"
+		, "pattern = ^iabak\\.shardstats\\.connections"
+		, "retentions = 1h:1y,3h:10y"
+		, "[iabak-default]"
 		, "pattern = ^iabak\\."
-		, "retentions = 10m:30d,1h:1y,3h,10y"
+		, "retentions = 10m:30d,1h:1y,3h:10y"
 		, "[default_1min_for_1day]"
 		, "pattern = .*"
-		, "retentions = 60s:1d"
 		]
 	& graphiteCSRF
 	& cmdProperty "graphite-manage" ["syncdb", "--noinput"] `flagFile` "/etc/flagFiles/graphite-syncdb"

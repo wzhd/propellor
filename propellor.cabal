@@ -1,5 +1,5 @@
 Name: propellor
-Version: 2.4.0
+Version: 2.5.0
 Cabal-Version: >= 1.6
 License: BSD3
 Maintainer: Joey Hess <id@joeyh.name>
@@ -110,6 +110,8 @@ Library
     Propellor.Property.SiteSpecific.GitHome
     Propellor.Property.SiteSpecific.JoeySites
     Propellor.Property.SiteSpecific.GitAnnexBuilder
+    Propellor.Property.SiteSpecific.Branchable
+    Propellor.Property.SiteSpecific.IABak
     Propellor.PropAccum
     Propellor.CmdLine
     Propellor.Info
@@ -119,6 +121,7 @@ Library
     Propellor.Exception
     Propellor.Types
     Propellor.Types.Chroot
+    Propellor.Types.Container
     Propellor.Types.Docker
     Propellor.Types.Dns
     Propellor.Types.Empty

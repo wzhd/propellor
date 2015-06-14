@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, TypeSynonymInstances, FlexibleInstances #-}
 
 -- | Docker support for propellor
 --
@@ -18,19 +18,23 @@ module Propellor.Property.Docker (
 	tweaked,
 	Image,
 	ContainerName,
-	Container(..),
+	Container,
+	HasImage(..),
 	-- * Container configuration
 	dns,
 	hostname,
+	Publishable,
 	publish,
 	expose,
 	user,
+	Mountable,
 	volume,
 	volumes_from,
 	workdir,
 	memory,
 	cpuShares,
 	link,
+	environment,
 	ContainerAlias,
 	restartAlways,
 	restartOnFailure,
@@ -42,12 +46,12 @@ module Propellor.Property.Docker (
 
 import Propellor hiding (init)
 import Propellor.Types.Docker
+import Propellor.Types.Container
 import Propellor.Types.CmdLine
 import qualified Propellor.Property.File as File
 import qualified Propellor.Property.Apt as Apt
 import qualified Propellor.Property.Cmd as Cmd
 import qualified Propellor.Shim as Shim
-import Utility.SafeCommand
 import Utility.Path
 import Utility.ThreadScheduler
 
@@ -79,10 +83,16 @@ configured = prop `requires` installed
 type ContainerName = String
 
 -- | A docker container.
-data Container = Container
-	{ containerImage :: Image
-	, containerHost :: Host
-	}
+data Container = Container Image Host
+
+class HasImage a where
+	getImageName :: a -> Image
+
+instance HasImage Image where
+	getImageName = id
+
+instance HasImage Container where
+	getImageName (Container i _) = i
 
 instance PropAccum Container where
 	(Container i h) & p = Container i (h & p)
@@ -142,19 +152,21 @@ docked ctr@(Container _ h) =
 			]
 
 -- | Build the image from a directory containing a Dockerfile.
-imageBuilt :: FilePath -> Image -> Property NoInfo
-imageBuilt directory image = describe built msg
+imageBuilt :: HasImage c => FilePath -> c -> Property NoInfo
+imageBuilt directory ctr = describe built msg
   where
 	msg = "docker image " ++ image ++ " built from " ++ directory
 	built = Cmd.cmdProperty' dockercmd ["build", "--tag", image, "./"] workDir
 	workDir p = p { cwd = Just directory }
+	image = getImageName ctr
 
 -- | Pull the image from the standard Docker Hub registry.
-imagePulled :: Image -> Property NoInfo
-imagePulled image = describe pulled msg
+imagePulled :: HasImage c => c -> Property NoInfo
+imagePulled ctr = describe pulled msg
   where
 	msg = "docker image " ++ image ++ " pulled"
 	pulled = Cmd.cmdProperty dockercmd ["pull", image]
+	image = getImageName ctr
 
 propigateContainerInfo :: (IsProp (Property i)) => Container -> Property i -> Property HasInfo
 propigateContainerInfo ctr@(Container _ h) p = propigateContainer ctr p'
@@ -246,10 +258,19 @@ hostname = runProp "hostname"
 name :: String -> Property HasInfo
 name = runProp "name"
 
+class Publishable p where
+	toPublish :: p -> String
+
+instance Publishable (Bound Port) where
+	toPublish p = show (hostSide p) ++ ":" ++ show (containerSide p)
+
+-- | string format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort
+instance Publishable String where
+	toPublish = id
+
 -- | Publish a container's port to the host
--- (format: ip:hostPort:containerPort | ip::containerPort | hostPort:containerPort)
-publish :: String -> Property HasInfo
-publish = runProp "publish"
+publish :: Publishable p => p -> Property HasInfo
+publish = runProp "publish" . toPublish
 
 -- | Expose a container's port without publishing it.
 expose :: String -> Property HasInfo
@@ -259,11 +280,21 @@ expose = runProp "expose"
 user :: String -> Property HasInfo
 user = runProp "user"
 
--- | Mount a volume
--- Create a bind mount with: [host-dir]:[container-dir]:[rw|ro]
+class Mountable p where
+	toMount :: p -> String
+
+instance Mountable (Bound FilePath) where
+	toMount p = hostSide p ++ ":" ++ containerSide p
+
+-- | string format: [host-dir]:[container-dir]:[rw|ro]
+--
 -- With just a directory, creates a volume in the container.
-volume :: String -> Property HasInfo
-volume = runProp "volume"
+instance Mountable String where
+	toMount = id
+
+-- | Mount a volume
+volume :: Mountable v => v -> Property HasInfo
+volume = runProp "volume" . toMount
 
 -- | Mount a volume from the specified container into the current
 -- container.
@@ -317,6 +348,11 @@ restartOnFailure (Just n) = runProp "restart" ("on-failure:" ++ show n)
 -- Note that this includes not restarting it on boot!
 restartNever :: Property HasInfo
 restartNever = runProp "restart" "no"
+
+-- | Set environment variable with a tuple composed by the environment
+-- variable name and its value.
+environment :: (String, String) -> Property HasInfo
+environment (k, v) = runProp "env" $ k ++ "=" ++ v
 
 -- | A container is identified by its name, and the host
 -- on which it's deployed.
@@ -417,16 +453,14 @@ runningContainer cid@(ContainerId hn cn) image runps = containerDesc cid $ prope
 				retry (n-1) a
 			_ -> return v
 
-	go img = do
-		liftIO $ do
-			clearProvisionedFlag cid
-			createDirectoryIfMissing True (takeDirectory $ identFile cid)
-		shim <- liftIO $ Shim.setup (localdir </> "propellor") Nothing (localdir </> shimdir cid)
-		liftIO $ writeFile (identFile cid) (show ident)
-		ensureProperty $ property "run" $ liftIO $
-			toResult <$> runContainer img
-				(runps ++ ["-i", "-d", "-t"])
-				[shim, "--continue", show (DockerInit (fromContainerId cid))]
+	go img = liftIO $ do
+		clearProvisionedFlag cid
+		createDirectoryIfMissing True (takeDirectory $ identFile cid)
+		shim <- Shim.setup (localdir </> "propellor") Nothing (localdir </> shimdir cid)
+		writeFile (identFile cid) (show ident)
+		toResult <$> runContainer img
+			(runps ++ ["-i", "-d", "-t"])
+			[shim, "--continue", show (DockerInit (fromContainerId cid))]
 
 -- | Called when propellor is running inside a docker container.
 -- The string should be the container's ContainerId.

@@ -15,7 +15,6 @@ import qualified Propellor.Property.User as User
 import qualified Propellor.Property.Obnam as Obnam
 import qualified Propellor.Property.Apache as Apache
 import qualified Propellor.Property.Postfix as Postfix
-import Utility.SafeCommand
 import Utility.FileMode
 
 import Data.List
@@ -30,7 +29,6 @@ scrollBox = propertyList "scroll server" $ props
 		"libghc-bytestring-dev", "libghc-mtl-dev", "libghc-ncurses-dev",
 		"libghc-random-dev", "libghc-monad-loops-dev", "libghc-text-dev",
 		"libghc-ifelse-dev", "libghc-case-insensitive-dev",
-		"libghc-transformers-dev",
 		"libghc-data-default-dev", "libghc-optparse-applicative-dev"]
 	& userScriptProperty (User "scroll")
 		[ "cd " ++ d </> "scroll"
@@ -470,7 +468,7 @@ backupsBackedupFrom hosts srchost destdir = Cron.niceJob desc
 	`requires` Ssh.knownHost hosts srchost (User "joey")
   where
 	desc = "backups copied from " ++ srchost ++ " on boot"
-	cmd = "rsync -az --bwlimit=300K --partial --delete " ++ srchost ++ ":lib/backup/ " ++ destdir </> srchost
+	cmd = "sleep 30m && rsync -az --bwlimit=300K --partial --delete " ++ srchost ++ ":lib/backup/ " ++ destdir </> srchost
 
 obnamRepos :: [String] -> Property NoInfo
 obnamRepos rs = propertyList ("obnam repos for " ++ unwords rs)

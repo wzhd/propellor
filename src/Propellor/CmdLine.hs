@@ -7,7 +7,7 @@ import System.Environment (getArgs)
 import Data.List
 import System.Exit
 import System.PosixCompat
-import qualified Network.BSD
+import Network.Socket
 
 import Propellor
 import Propellor.Gpg
@@ -18,7 +18,6 @@ import Propellor.Types.CmdLine
 import qualified Propellor.Property.Docker as Docker
 import qualified Propellor.Property.Chroot as Chroot
 import qualified Propellor.Shim as Shim
-import Utility.SafeCommand
 
 usage :: Handle -> IO ()
 usage h = hPutStrLn h $ unlines 
@@ -166,9 +165,15 @@ updateFirst' cmdline next = ifM fetchOrigin
 	, next
 	)
 
+-- Gets the fully qualified domain name, given a string that might be
+-- a short name to look up in the DNS.
 hostname :: String -> IO HostName
-hostname s
-	| "." `isInfixOf` s = pure s
-	| otherwise = do
-		h <- Network.BSD.getHostByName s
-		return (Network.BSD.hostName h)
+hostname s = go =<< catchDefaultIO [] dnslookup
+  where
+	dnslookup = getAddrInfo (Just canonname) (Just s) Nothing
+	canonname = defaultHints { addrFlags = [AI_CANONNAME] }
+	go (AddrInfo { addrCanonName = Just v } : _) = pure v
+	go _
+		| "." `isInfixOf` s = pure s -- assume it's a fqdn
+		| otherwise = 
+			error $ "cannot find host " ++ s ++ " in the DNS"
