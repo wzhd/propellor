@@ -18,10 +18,11 @@ Build-Depends:
 	libghc-exceptions-dev (>= 0.6),
 	libghc-stm-dev,
 	libghc-text-dev,
-Maintainer: Joey Hess <id@joeyh.name>
+Maintainer: Sean Whitton <spwhitton@spwhitton.name>
 Standards-Version: 3.9.6
-Vcs-Git: git://git.joeyh.name/propellor
-Homepage: http://propellor.branchable.com/
+Homepage: https://propellor.branchable.com/
+Vcs-Git: https://git.spwhitton.name/propellor
+Vcs-Browser: https://git.spwhitton.name/?p=propellor.git;a=summary
 
 Package: propellor
 Architecture: any

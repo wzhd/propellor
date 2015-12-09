@@ -1,3 +1,10 @@
+propellor (2.15.0-1) unstable; urgency=medium
+
+  * Adopt propellor package (Closes: #768634).
+  * Switch dpkg-source format to 3.0 (quilt).
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Wed, 09 Dec 2015 15:16:24 -0700
+
 propellor (2.15.0) unstable; urgency=medium
 
   * Added UncheckedProperty type, along with unchecked to indicate a
