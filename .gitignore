@@ -12,3 +12,5 @@ propellor.1
 .lock
 .lastchecked
 .stack-work/*
+/debian/files
+/debian/propellor.substvars
