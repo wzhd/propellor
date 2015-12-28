@@ -21,7 +21,7 @@ Build-Depends:
 Maintainer: Sean Whitton <spwhitton@spwhitton.name>
 Standards-Version: 3.9.6
 Homepage: https://propellor.branchable.com/
-Vcs-Git: https://git.spwhitton.name/propellor
+Vcs-Git: https://git.spwhitton.name/propellor -b debian
 Vcs-Browser: https://git.spwhitton.name/?p=propellor.git;a=summary
 
 Package: propellor
