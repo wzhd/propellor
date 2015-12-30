@@ -1,2 +1,5 @@
+# note that the tarball this watch file finds is not upstream's official release
+# tarball (which does not exist)
+
 version=3
 https://hackage.haskell.org/package/propellor /package/propellor-.+/propellor-(.+).tar.gz
