@@ -3,6 +3,8 @@ propellor (2.15.1-1) UNRELEASED; urgency=medium
   * New upstream version.
   * Add watch file.
   * Fix specification of packaging branch in Vcs-Git: variable.
+  * Silence xargs during package build when hothasktags is not installed.
+    Patch accepted upstream for next upstream release.
 
  -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 03 Jan 2016 16:41:42 +0000
 
