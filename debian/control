@@ -26,7 +26,6 @@ Vcs-Browser: https://git.spwhitton.name/?p=propellor.git;a=summary
 
 Package: propellor
 Architecture: any
-Section: admin
 Depends: ${misc:Depends}, ${shlibs:Depends},
 	ghc (>= 7.4),
 	cabal-install,
