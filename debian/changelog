@@ -1,9 +1,9 @@
-propellor (2.15.2-1) UNRELEASED; urgency=medium
+propellor (2.15.2-1) unstable; urgency=medium
 
   * New upstream version.
   * Fix duplicate Section: in debian/control file.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Mon, 04 Jan 2016 11:44:58 +0000
+ -- Sean Whitton <spwhitton@spwhitton.name>  Mon, 04 Jan 2016 12:14:47 +0000
 
 propellor (2.15.2) unstable; urgency=medium
 
