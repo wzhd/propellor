@@ -1,3 +1,10 @@
+propellor (2.15.2-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+  * Fix duplicate Section: in debian/control file.
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Mon, 04 Jan 2016 11:44:58 +0000
+
 propellor (2.15.2) unstable; urgency=medium
 
   * Added GNUPGBIN environment variable or git.program git config
