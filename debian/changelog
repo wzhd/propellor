@@ -1,3 +1,9 @@
+propellor (2.15.3-1) UNRELEASED; urgency=medium
+
+  * New upstream version.
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Tue, 12 Jan 2016 19:29:21 -0700
+
 propellor (2.15.3) unstable; urgency=medium
 
   * Added Git.bareRepoDefaultBranch property
