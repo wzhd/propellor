@@ -1,3 +1,11 @@
+propellor (2.15.3) unstable; urgency=medium
+
+  * Added Git.bareRepoDefaultBranch property
+    Thanks, Sean Whitton.
+  * Add missing Control.Applicative imports needed by older versions of ghc.
+
+ -- Joey Hess <id@joeyh.name>  Tue, 12 Jan 2016 12:37:22 -0400
+
 propellor (2.15.2-1) unstable; urgency=medium
 
   * New upstream version.
