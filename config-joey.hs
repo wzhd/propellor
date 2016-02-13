@@ -19,6 +19,7 @@ import qualified Propellor.Property.OpenId as OpenId
 import qualified Propellor.Property.Git as Git
 import qualified Propellor.Property.Postfix as Postfix
 import qualified Propellor.Property.Apache as Apache
+import qualified Propellor.Property.LetsEncrypt as LetsEncrypt
 import qualified Propellor.Property.Grub as Grub
 import qualified Propellor.Property.Obnam as Obnam
 import qualified Propellor.Property.Gpg as Gpg
@@ -261,19 +262,20 @@ kite = standardSystemUnhardened "kite.kitenet.net" Testing "amd64"
 	-- Since ssh password authentication is allowed:
 	& Fail2Ban.installed
 	& Obnam.backupEncrypted "/" (Cron.Times "33 1 * * *")
-		[ "--repository=sftp://joey@eubackup.kitenet.net/~/lib/backup/kite.obnam"
+		[ "--repository=sftp://2318@usw-s002.rsync.net/~/kite.obnam"
 		, "--client-name=kitenet.net"
 		, "--exclude=/var/cache"
 		, "--exclude=/var/tmp"
 		, "--exclude=/home/joey/lib"
 		, "--exclude=.*/tmp/"
 		, "--one-file-system"
+		, Obnam.keepParam [Obnam.KeepDays 7, Obnam.KeepWeeks 4, Obnam.KeepMonths 6]
 		] Obnam.OnlyClient (Gpg.GpgKeyId "98147487")
 		`requires` Ssh.userKeys (User "root")
 			(Context "kite.kitenet.net")
 			[ (SshRsa, "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC5Gza2sNqSKfNtUN4dN/Z3rlqw18nijmXFx6df2GtBoZbkIak73uQfDuZLP+AXlyfHocwdkdHEf/zrxgXS4EokQMGLZhJ37Pr3edrEn/NEnqroiffw7kyd7EqaziA6UOezcLTjWGv+Zqg9JhitYs4WWTpNzrPH3yQf1V9FunZnkzb4gJGndts13wGmPEwSuf+QHbgQvjMOMCJwWSNcJGdhDR66hFlxfG26xx50uIczXYAbgLfHp5W6WuR/lcaS9J6i7HAPwcsPDA04XDinrcpl29QwsMW1HyGS/4FSCgrDqNZ2jzP49Bka78iCLRqfl1efyYas/Zo1jQ0x+pxq2RMr root@kite")
 			]
-		`requires` Ssh.knownHost hosts "eubackup.kitenet.net" (User "root")
+		`requires` Ssh.knownHost hosts "usw-s002.rsync.net" (User "root")
 	& Apt.serviceInstalledRunning "ntp"
 	& "/etc/timezone" `File.hasContent` ["US/Eastern"]
 
@@ -330,6 +332,11 @@ kite = standardSystemUnhardened "kite.kitenet.net" Testing "amd64"
 	& alias "ns4.branchable.com"
 	& branchableSecondary
 	& Dns.secondaryFor ["animx"] hosts "animx.eu.org"
+
+	-- testing
+	& Apache.httpsVirtualHost "letsencrypt.joeyh.name" "/var/www/html"
+		(LetsEncrypt.AgreeTOS (Just "id@joeyh.name"))
+	& alias "letsencrypt.joeyh.name"
 
 elephant :: Host
 elephant = standardSystem "elephant.kitenet.net" Unstable "amd64"
@@ -522,7 +529,7 @@ standardSystemUnhardened hn suite arch motd = host hn
 	& Apt.stdSourcesList `onChange` Apt.upgrade
 	& Apt.cacheCleaned
 	& Apt.installed ["etckeeper"]
-	& Apt.installed ["ssh"]
+	& Apt.installed ["ssh", "mosh"]
 	& GitHome.installedFor (User "root")
 	& User.hasSomePassword (User "root")
 	& User.accountFor (User "joey")
@@ -576,7 +583,7 @@ myDnsPrimary dnssec domain extras = (if dnssec then Dns.signedPrimary (Weekly No
 monsters :: [Host]    -- Systems I don't manage with propellor,
 monsters =            -- but do want to track their public keys etc.
 	[ host "usw-s002.rsync.net"
-		& Ssh.hostPubKey SshDsa "ssh-dss AAAAB3NzaC1kc3MAAAEBAI6ZsoW8a+Zl6NqUf9a4xXSMcV1akJHDEKKBzlI2YZo9gb9YoCf5p9oby8THUSgfh4kse7LJeY7Nb64NR6Y/X7I2/QzbE1HGGl5mMwB6LeUcJ74T3TQAlNEZkGt/MOIVLolJHk049hC09zLpkUDtX8K0t1yaCirC9SxDGLTCLEhvU9+vVdVrdQlKZ9wpLUNbdAzvbra+O/IVvExxDZ9WCHrnfNA8ddVZIGEWMqsoNgiuCxiXpi8qL+noghsSQNFTXwo7W2Vp9zj1JkCt3GtSz5IzEpARQaXEAWNEM0n1nJ686YUOhou64iRM8bPC1lp3QXvvZNgj3m+QHhIempx+de8AAAAVAKB5vUDaZOg14gRn7Bp81ja/ik+RAAABACPH/bPbW912x1NxNiikzGR6clLh+bLpIp8Qie3J7DwOr8oC1QOKjNDK+UgQ7mDQEgr4nGjNKSvpDi4c1QCw4sbLqQgx1y2VhT0SmUPHf5NQFldRQyR/jcevSSwOBxszz3aq9AwHiv9OWaO3XY18suXPouiuPTpIcZwc2BLDNHFnDURQeGEtmgqj6gZLIkTY0iw7q9Tj5FOyl4AkvEJC5B4CSzaWgey93Wqn1Imt7KI8+H9lApMKziVL1q+K7xAuNkGmx5YOSNlE6rKAPtsIPHZGxR7dch0GURv2jhh0NQYvBRn3ukCjuIO5gx56HLgilq59/o50zZ4NcT7iASF76TcAAAEAC6YxX7rrs8pp13W4YGiJHwFvIO1yXLGOdqu66JM0plO4J1ItV1AQcazOXLiliny3p2/W+wXZZKd5HIRt52YafCA8YNyMk/sF7JcTR4d4z9CfKaAxh0UpzKiAk+0j/Wu3iPoTOsyt7N0j1+dIyrFodY2sKKuBMT4TQ0yqQpbC+IDQv2i1IlZAPneYGfd5MIGygs2QMfaMQ1jWAKJvEO0vstZ7GB6nDAcg4in3ZiBHtomx3PL5w+zg48S4Ed69BiFXLZ1f6MnjpUOP75pD4MP6toS0rgK9b93xCrEQLgm4oD/7TCHHBo2xR7wwcsN2OddtwWsEM2QgOkt/jdCAoVCqwQ=="
+		& Ssh.hostPubKey SshEd25519 "ssh-ed25519 SHA256:DBW4gxagH9Q3Avnus+dxaoOS5L/Q/tZlT42bcoMp+4Y"
 	, host "github.com" 
 		& Ssh.hostPubKey SshRsa "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
 	, host "gitlab.com"

@@ -140,6 +140,7 @@ oldUseNetServer hosts = propertyList "olduse.net server" $ props
 		[ "--repository=sftp://2318@usw-s002.rsync.net/~/olduse.net"
 		, "--client-name=spool"
 		, "--ssh-key=" ++ keyfile
+		, Obnam.keepParam [Obnam.KeepDays 30]
 		] Obnam.OnlyClient
 		`requires` Ssh.userKeyAt (Just keyfile)
 			(User "root")
@@ -194,6 +195,7 @@ mumbleServer hosts = combineProperties hn $ props
 		[ "--repository=sftp://2318@usw-s002.rsync.net/~/" ++ hn ++ ".obnam"
 		, "--ssh-key=" ++ sshkey
 		, "--client-name=mumble"
+		, Obnam.keepParam [Obnam.KeepDays 30]
 		] Obnam.OnlyClient
 		`requires` Ssh.userKeyAt (Just sshkey)
 			(User "root")
@@ -213,6 +215,7 @@ gitServer hosts = propertyList "git.kitenet.net setup" $ props
 		[ "--repository=sftp://2318@usw-s002.rsync.net/~/git.kitenet.net"
 		, "--ssh-key=" ++ sshkey
 		, "--client-name=wren" -- historical
+		, Obnam.keepParam [Obnam.KeepDays 30]
 		] Obnam.OnlyClient (Gpg.GpgKeyId "1B169BE1")
 		`requires` Ssh.userKeyAt (Just sshkey)
 			(User "root")
@@ -477,7 +480,7 @@ githubMirrors =
 	, ("etckeeper", plzuseurl "http://etckeeper.branchable.com/todo/")
 	]
   where
-	plzuseurl u = "Please submit changes to " ++ u ++ " instead of using github pull requests, which are not part of my workflow. -- A robot acting on behalf of Joey Hess"
+	plzuseurl u = "Please submit changes to " ++ u ++ " instead of using github pull requests, which are not part of my workflow. Just open a todo item there and link to a git repository containing your changes. Did you know, git is a distributed system? The git repository doesn't even need to be on github! Please send any complaints to Github; they don't allow turning off pull requests or redirecting them elsewhere.  -- A robot acting on behalf of Joey Hess"
 
 rsyncNetBackup :: [Host] -> Property NoInfo
 rsyncNetBackup hosts = Cron.niceJob "rsync.net copied in daily" (Cron.Times "30 5 * * *")
