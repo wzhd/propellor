@@ -1,8 +1,8 @@
-propellor (2.15.4-1) UNRELEASED; urgency=medium
+propellor (2.15.4-1) unstable; urgency=medium
 
   * New upstream version.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Sat, 13 Feb 2016 11:42:09 -0700
+ -- Sean Whitton <spwhitton@spwhitton.name>  Sat, 13 Feb 2016 11:52:53 -0700
 
 propellor (2.15.4) unstable; urgency=medium
 
