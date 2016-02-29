@@ -1,4 +1,4 @@
-propellor (2.16.0-1) UNRELEASED; urgency=medium
+propellor (2.16.0-1) unstable; urgency=medium
 
   * New upstream version.
   * Create changelog symlink with dh_link instead of in debian/rules.
@@ -6,7 +6,7 @@ propellor (2.16.0-1) UNRELEASED; urgency=medium
     /usr/share/doc.
   * Bump standards version to 3.9.7 (no changes required).
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 28 Feb 2016 16:57:12 -0700
+ -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 28 Feb 2016 17:02:24 -0700
 
 propellor (2.16.0) unstable; urgency=medium
 
