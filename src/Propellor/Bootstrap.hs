@@ -15,16 +15,16 @@ type ShellCommand = String
 -- Shell command line to ensure propellor is bootstrapped and ready to run.
 -- Should be run inside the propellor config dir, and will install
 -- all necessary build dependencies and build propellor.
-bootstrapPropellorCommand :: ShellCommand
-bootstrapPropellorCommand = checkDepsCommand ++ 
-	"&& if ! test -x ./propellor; then " 
-		++ buildCommand ++ 
+bootstrapPropellorCommand :: Maybe System -> ShellCommand
+bootstrapPropellorCommand msys = checkDepsCommand msys ++
+	"&& if ! test -x ./propellor; then "
+		++ buildCommand ++
 	"; fi;" ++ checkBinaryCommand
 
 -- Use propellor --check to detect if the local propellor binary has
 -- stopped working (eg due to library changes), and must be rebuilt.
 checkBinaryCommand :: ShellCommand
-checkBinaryCommand = "if test -x ./propellor && ! ./propellor --check 2>/dev/null; then " ++ go ++ "; fi"
+checkBinaryCommand = "if test -x ./propellor && ! ./propellor --check; then " ++ go ++ "; fi"
   where
 	go = intercalate " && "
 		[ "cabal clean"
@@ -34,14 +34,14 @@ checkBinaryCommand = "if test -x ./propellor && ! ./propellor --check 2>/dev/nul
 buildCommand :: ShellCommand
 buildCommand = intercalate " && "
 	[ "cabal configure"
-	, "cabal build"
+	, "cabal build propellor-config"
 	, "ln -sf dist/build/propellor-config/propellor-config propellor"
 	]
 
 -- Run cabal configure to check if all dependencies are installed;
 -- if not, run the depsCommand.
-checkDepsCommand :: ShellCommand
-checkDepsCommand = "if ! cabal configure >/dev/null 2>&1; then " ++ depsCommand ++ "; fi"
+checkDepsCommand :: Maybe System -> ShellCommand
+checkDepsCommand sys = "if ! cabal configure >/dev/null 2>&1; then " ++ depsCommand sys ++ "; fi"
 
 -- Install build dependencies of propellor.
 --
@@ -53,17 +53,25 @@ checkDepsCommand = "if ! cabal configure >/dev/null 2>&1; then " ++ depsCommand 
 -- So, as a second step, cabal is used to install all dependencies.
 --
 -- Note: May succeed and leave some deps not installed.
-depsCommand :: ShellCommand
-depsCommand = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) ++ " ) || true"
+depsCommand :: Maybe System -> ShellCommand
+depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) ++ " ) || true"
   where
-	osinstall = "apt-get update" : map aptinstall debdeps
+	osinstall = case msys of
+		Just (System (FreeBSD _) _) -> map pkginstall fbsddeps
+		Just (System (Debian _) _) -> useapt
+		Just (System (Buntish _) _) -> useapt
+		-- assume a debian derived system when not specified
+		Nothing -> useapt
 
-	cabalinstall = 
+	useapt = "apt-get update" : map aptinstall debdeps
+
+	cabalinstall =
 		[ "cabal update"
 		, "cabal install --only-dependencies"
 		]
 
 	aptinstall p = "DEBIAN_FRONTEND=noninteractive apt-get --no-upgrade --no-install-recommends -y install " ++ p
+	pkginstall p = "ASSUME_ALWAYS_YES=yes pkg install " ++ p
 
 	-- This is the same deps listed in debian/control.
 	debdeps =
@@ -84,9 +92,41 @@ depsCommand = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) ++ " 
 		, "libghc-text-dev"
 		, "make"
 		]
+	fbsddeps =
+		[ "gnupg"
+		, "ghc"
+		, "hs-cabal-install"
+		, "hs-async"
+		, "hs-MissingH"
+		, "hs-hslogger"
+		, "hs-unix-compat"
+		, "hs-ansi-terminal"
+		, "hs-IfElse"
+		, "hs-network"
+		, "hs-mtl"
+		, "hs-transformers-base"
+		, "hs-exceptions"
+		, "hs-stm"
+		, "hs-text"
+		, "gmake"
+		]
 
-installGitCommand :: ShellCommand
-installGitCommand = "if ! git --version >/dev/null; then apt-get update && DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends --no-upgrade -y install git; fi"
+installGitCommand :: Maybe System -> ShellCommand
+installGitCommand msys = case msys of
+	(Just (System (Debian _) _)) -> use apt
+	(Just (System (Buntish _) _)) -> use apt
+	(Just (System (FreeBSD _) _)) -> use
+		[ "ASSUME_ALWAYS_YES=yes pkg update"
+		, "ASSUME_ALWAYS_YES=yes pkg install git"
+		]
+	-- assume a debian derived system when not specified
+	Nothing -> use apt
+  where
+	use cmds = "if ! git --version >/dev/null; then " ++ intercalate " && " cmds ++ "; fi"
+	apt = 
+		[ "apt-get update"
+		, "DEBIAN_FRONTEND=noninteractive apt-get --no-install-recommends --no-upgrade -y install git"
+		]
 
 buildPropellor :: IO ()
 buildPropellor = unlessM (actionMessage "Propellor build" build) $
@@ -101,7 +141,7 @@ build :: IO Bool
 build = catchBoolIO $ do
 	make "dist/setup-config" ["propellor.cabal"] $
 		cabal ["configure"]
-	unlessM (cabal ["build"]) $ do
+	unlessM (cabal ["build", "propellor-config"]) $ do
 		void $ cabal ["configure"]
 		unlessM (cabal ["build"]) $
 			error "cabal build failed"

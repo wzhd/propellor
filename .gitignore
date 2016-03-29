@@ -1,5 +1,5 @@
+/propellor
 dist/*
-propellor
 tags
 privdata/local
 privdata/keyring.gpg~
@@ -14,3 +14,7 @@ propellor.1
 .stack-work/*
 /debian/files
 /debian/propellor.substvars
+.cabal-sandbox/
+.dir-locals.el
+cabal.sandbox.config
+*~

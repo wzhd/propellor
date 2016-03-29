@@ -21,7 +21,7 @@ import qualified Propellor.Property.Chroot as Chroot
 import qualified Propellor.Shim as Shim
 
 usage :: Handle -> IO ()
-usage h = hPutStrLn h $ unlines 
+usage h = hPutStrLn h $ unlines
 	[ "Usage:"
 	, "  propellor"
 	, "  propellor hostname"
@@ -47,10 +47,10 @@ usageError ps = do
 processCmdLine :: IO CmdLine
 processCmdLine = go =<< getArgs
   where
-  	go ("--check":_) = return Check
+	go ("--check":_) = return Check
 	go ("--spin":ps) = case reverse ps of
-		(r:"--via":hs) -> Spin 
-			<$> mapM hostname (reverse hs) 
+		(r:"--via":hs) -> Spin
+			<$> mapM hostname (reverse hs)
 			<*> pure (Just r)
 		_ -> Spin <$> mapM hostname ps <*> pure Nothing
 	go ("--add-key":k:[]) = return $ AddKey k
@@ -62,7 +62,7 @@ processCmdLine = go =<< getArgs
 	go ("--edit":f:c:[]) = withprivfield f c Edit
 	go ("--list-fields":[]) = return ListFields
 	go ("--merge":[]) = return Merge
-	go ("--help":_) = do	
+	go ("--help":_) = do
 		usage stdout
 		exitFailure
 	go ("--boot":_:[]) = return $ Update Nothing -- for back-compat
@@ -88,6 +88,8 @@ processCmdLine = go =<< getArgs
 		Just cmdline -> return $ mk cmdline
 		Nothing -> errorMessage $ "serialization failure (" ++ s ++ ")"
 
+data CanRebuild = CanRebuild | NoRebuild
+
 -- | Runs propellor on hosts, as controlled by command-line options.
 defaultMain :: [Host] -> IO ()
 defaultMain hostlist = withConcurrentOutput $ do
@@ -95,10 +97,9 @@ defaultMain hostlist = withConcurrentOutput $ do
 	checkDebugMode
 	cmdline <- processCmdLine
 	debug ["command line: ", show cmdline]
-	go True cmdline
+	go CanRebuild cmdline
   where
-	go _ (Serialized cmdline) = go True cmdline
-	go _ (Continue cmdline) = go False cmdline
+	go cr (Serialized cmdline) = go cr cmdline
 	go _ Check = return ()
 	go _ (Set field context) = setPrivData field context
 	go _ (Unset field context) = unsetPrivData field context
@@ -112,26 +113,29 @@ defaultMain hostlist = withConcurrentOutput $ do
 	go _ (DockerChain hn cid) = Docker.chain hostlist hn cid
 	go _ (DockerInit hn) = Docker.init hn
 	go _ (GitPush fin fout) = gitPushHelper fin fout
-	go _ (Relay h) = forceConsole >> updateFirst (Update (Just h)) (update (Just h))
-	go _ (Update Nothing) = forceConsole >> fetchFirst (onlyprocess (update Nothing))
+	go cr (Relay h) = forceConsole >>
+		updateFirst cr (Update (Just h)) (update (Just h))
+	go _ (Update Nothing) = forceConsole >>
+		fetchFirst (onlyprocess (update Nothing))
 	go _ (Update (Just h)) = update (Just h)
 	go _ Merge = mergeSpin
-	go True cmdline@(Spin _ _) = buildFirst cmdline $ go False cmdline
-	go True cmdline = updateFirst cmdline $ go False cmdline
-	go False (Spin hs mrelay) = do
+	go cr cmdline@(Spin hs mrelay) = buildFirst cr cmdline $ do
 		unless (isJust mrelay) commitSpin
 		forM_ hs $ \hn -> withhost hn $ spin mrelay hn
-	go False cmdline@(SimpleRun hn) = do
-		forceConsole
-		buildFirst cmdline $ go False (Run hn)
-	go False (Run hn) = ifM ((==) 0 <$> getRealUserID)
-		( onlyprocess $ withhost hn mainProperties
-		, go True (Spin [hn] Nothing)
+	go cr cmdline@(Run hn) = ifM ((==) 0 <$> getRealUserID)
+		( updateFirst cr cmdline $ runhost hn
+		, fetchFirst $ go cr (Spin [hn] Nothing)
 		)
+	go cr cmdline@(SimpleRun hn) = forceConsole >>
+		fetchFirst (buildFirst cr cmdline (runhost hn))
+	-- When continuing after a rebuild, don't want to rebuild again.
+	go _ (Continue cmdline) = go NoRebuild cmdline
 
 	withhost :: HostName -> (Host -> IO ()) -> IO ()
 	withhost hn a = maybe (unknownhost hn hostlist) a (findHost hostlist hn)
-	
+
+	runhost hn = onlyprocess $ withhost hn mainProperties
+
 	onlyprocess = onlyProcess (localdir </> ".lock")
 
 unknownhost :: HostName -> [Host] -> IO a
@@ -142,19 +146,29 @@ unknownhost h hosts = errorMessage $ unlines
 	, "Known hosts: " ++ unwords (map hostName hosts)
 	]
 
-buildFirst :: CmdLine -> IO () -> IO ()
-buildFirst cmdline next = do
+-- Builds propellor (when allowed) and if it looks like a new binary,
+-- re-execs it to continue.
+-- Otherwise, runs the IO action to continue.
+buildFirst :: CanRebuild -> CmdLine -> IO () -> IO ()
+buildFirst CanRebuild cmdline next = do
 	oldtime <- getmtime
 	buildPropellor
 	newtime <- getmtime
 	if newtime == oldtime
 		then next
-		else void $ boolSystem "./propellor"
-			[ Param "--continue"
-			, Param (show cmdline)
-			]
+		else continueAfterBuild cmdline
   where
 	getmtime = catchMaybeIO $ getModificationTime "propellor"
+buildFirst NoRebuild _ next = next
+
+continueAfterBuild :: CmdLine -> IO a
+continueAfterBuild cmdline = go =<< boolSystem "./propellor"
+	[ Param "--continue"
+	, Param (show cmdline)
+	]
+  where
+	go True = exitSuccess
+	go False = exitWith (ExitFailure 1)
 
 fetchFirst :: IO () -> IO ()
 fetchFirst next = do
@@ -162,19 +176,23 @@ fetchFirst next = do
 		void fetchOrigin
 	next
 
-updateFirst :: CmdLine -> IO () -> IO ()
-updateFirst cmdline next = ifM hasOrigin (updateFirst' cmdline next, next)
-
-updateFirst' :: CmdLine -> IO () -> IO ()
-updateFirst' cmdline next = ifM fetchOrigin
-	( do
-		buildPropellor
-		void $ boolSystem "./propellor"
-			[ Param "--continue"
-			, Param (show cmdline)
-			]
+updateFirst :: CanRebuild -> CmdLine -> IO () -> IO ()
+updateFirst canrebuild cmdline next = ifM hasOrigin
+	( updateFirst' canrebuild cmdline next
 	, next
 	)
+
+-- If changes can be fetched from origin,  Builds propellor (when allowed)
+-- and re-execs the updated propellor binary to continue.
+-- Otherwise, runs the IO action to continue.
+updateFirst' :: CanRebuild -> CmdLine -> IO () -> IO ()
+updateFirst' CanRebuild cmdline next = ifM fetchOrigin
+	( do
+		buildPropellor
+		continueAfterBuild cmdline
+	, next
+	)
+updateFirst' NoRebuild _ next = next
 
 -- Gets the fully qualified domain name, given a string that might be
 -- a short name to look up in the DNS.
@@ -186,5 +204,5 @@ hostname s = go =<< catchDefaultIO [] dnslookup
 	go (AddrInfo { addrCanonName = Just v } : _) = pure v
 	go _
 		| "." `isInfixOf` s = pure s -- assume it's a fqdn
-		| otherwise = 
+		| otherwise =
 			error $ "cannot find host " ++ s ++ " in the DNS"

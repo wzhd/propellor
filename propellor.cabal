@@ -1,5 +1,5 @@
 Name: propellor
-Version: 2.16.0
+Version: 2.17.1
 Cabal-Version: >= 1.8
 License: BSD3
 Maintainer: Joey Hess <id@joeyh.name>
@@ -16,8 +16,10 @@ Extra-Source-Files:
   CHANGELOG
   Makefile
   config-simple.hs
-  config-joey.hs
+  config-freebsd.hs
+  joeyconfig.hs
   config.hs
+  contrib/post-merge-hook
   debian/changelog
   debian/README.Debian
   debian/compat
@@ -36,10 +38,12 @@ Executable propellor
   Main-Is: wrapper.hs
   GHC-Options: -threaded -Wall -fno-warn-tabs
   Hs-Source-Dirs: src
-  Build-Depends: MissingH, directory, filepath, base >= 4.5, base < 5,
-   IfElse, process, bytestring, hslogger, unix-compat, ansi-terminal,
-   containers (>= 0.5), network, async, time, mtl, transformers,
-   exceptions (>= 0.6), stm, text, unix
+  Build-Depends: 
+    -- propellor needs to support the ghc shipped in Debian stable
+    base >= 4.5, base < 5,
+    MissingH, directory, filepath, IfElse, process, bytestring, hslogger,
+    unix, unix-compat, ansi-terminal, containers (>= 0.5), network, async,
+    time, mtl, transformers, exceptions (>= 0.6), stm, text
 
 Executable propellor-config
   Main-Is: config.hs
@@ -83,6 +87,9 @@ Library
     Propellor.Property.Fail2Ban
     Propellor.Property.File
     Propellor.Property.Firewall
+    Propellor.Property.FreeBSD
+    Propellor.Property.FreeBSD.Pkg
+    Propellor.Property.FreeBSD.Poudriere
     Propellor.Property.Git
     Propellor.Property.Gpg
     Propellor.Property.Group
@@ -117,6 +124,9 @@ Library
     Propellor.Property.Unbound
     Propellor.Property.User
     Propellor.Property.Uwsgi
+    Propellor.Property.ZFS
+    Propellor.Property.ZFS.Process
+    Propellor.Property.ZFS.Properties
     Propellor.Property.HostingProvider.CloudAtCost
     Propellor.Property.HostingProvider.DigitalOcean
     Propellor.Property.HostingProvider.Linode
@@ -146,6 +156,7 @@ Library
     Propellor.Types.Result
     Propellor.Types.ResultCheck
     Propellor.Types.CmdLine
+    Propellor.Types.ZFS
   Other-Modules:
     Propellor.Bootstrap
     Propellor.Git
@@ -175,6 +186,7 @@ Library
     Utility.PosixFiles
     Utility.Process
     Utility.Process.Shim
+    Utility.Process.NonConcurrent
     Utility.SafeCommand
     Utility.Scheduled
     Utility.Table

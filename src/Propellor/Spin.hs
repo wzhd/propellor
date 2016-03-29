@@ -1,3 +1,5 @@
+{-# Language ScopedTypeVariables #-}
+
 module Propellor.Spin (
 	commitSpin,
 	spin,
@@ -30,6 +32,7 @@ import Propellor.Types.Info
 import qualified Propellor.Shim as Shim
 import Utility.FileMode
 import Utility.SafeCommand
+import Utility.Process.NonConcurrent
 
 commitSpin :: IO ()
 commitSpin = do
@@ -41,7 +44,7 @@ commitSpin = do
 			currentBranch <- getCurrentBranch
 			when (b /= currentBranch) $
 				error ("spin aborted: check out "
- 					++ b ++ " branch first")
+					++ b ++ " branch first")
 
 	-- safety check #2: check we can commit with a dirty tree
 	noDirtySpin <- getGitConfigBool "propellor.forbid-dirty-spin"
@@ -52,14 +55,14 @@ commitSpin = do
 			error "spin aborted: commit changes first"
 
 	void $ actionMessage "Git commit" $
-		gitCommit (Just spinCommitMessage) 
+		gitCommit (Just spinCommitMessage)
 			[Param "--allow-empty", Param "-a"]
 	-- Push to central origin repo first, if possible.
 	-- The remote propellor will pull from there, which avoids
 	-- us needing to send stuff directly to the remote host.
 	whenM hasOrigin $
 		void $ actionMessage "Push to central git repository" $
-			boolSystem "git" [Param "push"]
+			boolSystemNonConcurrent "git" [Param "push"]
 
 spin :: Maybe HostName -> HostName -> Host -> IO ()
 spin = spin' Nothing
@@ -83,27 +86,30 @@ spin' mprivdata relay target hst = do
 		=<< getprivdata
 
 	-- And now we can run it.
-	unlessM (boolSystem "ssh" (map Param $ cacheparams ++ ["-t", sshtarget, shellWrap runcmd])) $
+	unlessM (boolSystemNonConcurrent "ssh" (map Param $ cacheparams ++ ["-t", sshtarget, shellWrap runcmd])) $
 		error "remote propellor failed"
   where
 	hn = fromMaybe target relay
+	sys = case getInfo (hostInfo hst) of
+		InfoVal o -> Just o
+		NoInfoVal -> Nothing
 
 	relaying = relay == Just target
 	viarelay = isJust relay && not relaying
 
 	probecmd = intercalate " ; "
-		[ "if [ ! -d " ++ localdir ++ "/.git ]"
+		["if [ ! -d " ++ localdir ++ "/.git ]"
 		, "then (" ++ intercalate " && "
-			[ installGitCommand
+			[ installGitCommand sys
 			, "echo " ++ toMarked statusMarker (show NeedGitClone)
 			] ++ ") || echo " ++ toMarked statusMarker (show NeedPrecompiled)
 		, "else " ++ updatecmd
 		, "fi"
 		]
-	
+
 	updatecmd = intercalate " && "
 		[ "cd " ++ localdir
-		, bootstrapPropellorCommand
+		, bootstrapPropellorCommand sys
 		, if viarelay
 			then "./propellor --continue " ++
 				shellEscape (show (Relay target))
@@ -112,10 +118,11 @@ spin' mprivdata relay target hst = do
 		]
 
 	runcmd = "cd " ++ localdir ++ " && ./propellor " ++ cmd
-	cmd = if viarelay
-		then "--serialized " ++ shellEscape (show (Spin [target] (Just target)))
-		else "--continue " ++ shellEscape (show (SimpleRun target))
-	
+	cmd = "--serialized " ++ shellEscape (show cmdline)
+	cmdline
+		| viarelay = Spin [target] (Just target)
+		| otherwise = SimpleRun target
+
 	getprivdata = case mprivdata of
 		Nothing
 			| relaying -> do
@@ -123,12 +130,12 @@ spin' mprivdata relay target hst = do
 				d <- readPrivDataFile f
 				nukeFile f
 				return d
-			| otherwise -> 
+			| otherwise ->
 				filterPrivData hst <$> decryptPrivData
 		Just pd -> pure pd
 
 -- Check if the Host contains an IP address that matches one of the IPs
--- in the DNS for the HostName. If so, the HostName is used as-is, 
+-- in the DNS for the HostName. If so, the HostName is used as-is,
 -- but if the DNS is out of sync with the Host config, or doesn't have
 -- the host in it at all, use one of the Host's IPs instead.
 getSshTarget :: HostName -> Host -> IO String
@@ -186,9 +193,9 @@ update forhost = do
 			hClose stdout
 			-- Not using git pull because git 2.5.0 badly
 			-- broke its option parser.
-			unlessM (boolSystem "git" (pullparams hin hout)) $
+			unlessM (boolSystemNonConcurrent "git" (pullparams hin hout)) $
 				errorMessage "git fetch from client failed"
-			unlessM (boolSystem "git" [Param "merge", Param "FETCH_HEAD"]) $
+			unlessM (boolSystemNonConcurrent "git" [Param "merge", Param "FETCH_HEAD"]) $
 				errorMessage "git merge from client failed"
   where
 	pullparams hin hout =
@@ -198,7 +205,7 @@ update forhost = do
 		, Param $ "./propellor --gitpush " ++ show hin ++ " " ++ show hout
 		, Param "."
 		]
-	
+
 	-- When --spin --relay is run, get a privdata file
 	-- to be relayed to the target host.
 	privfile = maybe privDataLocal privDataRelay forhost
@@ -211,8 +218,13 @@ updateServer
 	-> CreateProcess
 	-> PrivMap
 	-> IO ()
-updateServer target relay hst connect haveprecompiled privdata =
-	withIOHandles createProcessSuccess connect go
+updateServer target relay hst connect haveprecompiled privdata = do
+	(Just toh, Just fromh, _, pid) <- createProcessNonConcurrent $ connect
+		{ std_in = CreatePipe
+		, std_out = CreatePipe
+		}
+	go (toh, fromh)
+	forceSuccessProcess' connect =<< waitForProcessNonConcurrent pid
   where
 	hn = fromMaybe target relay
 
@@ -275,8 +287,8 @@ sendGitClone hn = void $ actionMessage ("Clone git repository to " ++ hn) $ do
 	cacheparams <- sshCachingParams hn
 	withTmpFile "propellor.git" $ \tmp _ -> allM id
 		[ boolSystem "git" [Param "bundle", Param "create", File tmp, Param "HEAD"]
-		, boolSystem "scp" $ cacheparams ++ [File tmp, Param ("root@"++hn++":"++remotebundle)]
-		, boolSystem "ssh" $ cacheparams ++ [Param ("root@"++hn), Param $ unpackcmd branch]
+		, boolSystemNonConcurrent "scp" $ cacheparams ++ [File tmp, Param ("root@"++hn++":"++remotebundle)]
+		, boolSystemNonConcurrent "ssh" $ cacheparams ++ [Param ("root@"++hn), Param $ unpackcmd branch]
 		]
   where
 	remotebundle = "/usr/local/propellor.git"
@@ -312,8 +324,8 @@ sendPrecompiled hn = void $ actionMessage "Uploading locally compiled propellor 
 		withTmpFile "propellor.tar." $ \tarball _ -> allM id
 			[ boolSystem "strip" [File me]
 			, boolSystem "tar" [Param "czf", File tarball, File shimdir]
-			, boolSystem "scp" $ cacheparams ++ [File tarball, Param ("root@"++hn++":"++remotetarball)]
-			, boolSystem "ssh" $ cacheparams ++ [Param ("root@"++hn), Param unpackcmd]
+			, boolSystemNonConcurrent "scp" $ cacheparams ++ [File tarball, Param ("root@"++hn++":"++remotetarball)]
+			, boolSystemNonConcurrent "ssh" $ cacheparams ++ [Param ("root@"++hn), Param unpackcmd]
 			]
 
 	remotetarball = "/usr/local/propellor.tar"
