@@ -1,3 +1,9 @@
+propellor (2.17.1-1) unstable; urgency=medium
+
+  * New upstream version.
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Tue, 29 Mar 2016 08:30:00 -0700
+
 propellor (2.17.1) unstable; urgency=medium
 
   * Avoid generating excessively long paths to the unix socket file
