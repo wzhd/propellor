@@ -26,6 +26,8 @@ module Propellor.Types (
 	, Buntish
 	, FreeBSD
 	, HasInfo
+	, UsingPort
+	, Nat
 	, type (+)
 	, TightenTargets(..)
 	-- * Combining and modifying properties

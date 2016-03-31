@@ -19,10 +19,10 @@ type ConfigLine = String
 
 type ConfigFile = [ConfigLine]
 
-siteEnabled :: Domain -> ConfigFile -> RevertableProperty DebianLike DebianLike
+siteEnabled :: Domain -> ConfigFile -> RevertableProperty (UsingPort 80 + DebianLike) DebianLike
 siteEnabled domain cf = siteEnabled' domain cf <!> siteDisabled domain
 
-siteEnabled' :: Domain -> ConfigFile -> Property DebianLike
+siteEnabled' :: Domain -> ConfigFile -> Property (UsingPort 80 + DebianLike)
 siteEnabled' domain cf = combineProperties ("apache site enabled " ++ domain) $ props
 	& siteAvailable domain cf
 		`requires` installed
@@ -129,11 +129,11 @@ type WebRoot = FilePath
 
 -- | A basic virtual host, publishing a directory, and logging to
 -- the combined apache log file. Not https capable.
-virtualHost :: Domain -> Port -> WebRoot -> RevertableProperty DebianLike DebianLike
+virtualHost :: Domain -> Port -> WebRoot -> RevertableProperty (UsingPort 80 + DebianLike) DebianLike
 virtualHost domain port docroot = virtualHost' domain port docroot []
 
 -- | Like `virtualHost` but with additional config lines added.
-virtualHost' :: Domain -> Port -> WebRoot -> [ConfigLine] -> RevertableProperty DebianLike DebianLike
+virtualHost' :: Domain -> Port -> WebRoot -> [ConfigLine] -> RevertableProperty (UsingPort 80 + DebianLike) DebianLike
 virtualHost' domain port docroot addedcfg = siteEnabled domain $
 	[ "<VirtualHost *:" ++ fromPort port ++ ">"
 	, "ServerName " ++ domain ++ ":" ++ fromPort port
@@ -159,11 +159,11 @@ virtualHost' domain port docroot addedcfg = siteEnabled domain $
 --
 -- Note that reverting this property does not remove the certificate from
 -- letsencrypt's cert store.
-httpsVirtualHost :: Domain -> WebRoot -> LetsEncrypt.AgreeTOS -> RevertableProperty DebianLike DebianLike
+httpsVirtualHost :: Domain -> WebRoot -> LetsEncrypt.AgreeTOS -> RevertableProperty (UsingPort 80 + UsingPort 443 + DebianLike) DebianLike
 httpsVirtualHost domain docroot letos = httpsVirtualHost' domain docroot letos []
 
 -- | Like `httpsVirtualHost` but with additional config lines added.
-httpsVirtualHost' :: Domain -> WebRoot -> LetsEncrypt.AgreeTOS -> [ConfigLine] -> RevertableProperty DebianLike DebianLike
+httpsVirtualHost' :: Domain -> WebRoot -> LetsEncrypt.AgreeTOS -> [ConfigLine] -> RevertableProperty (UsingPort 80 + UsingPort 443 + DebianLike) DebianLike
 httpsVirtualHost' domain docroot letos addedcfg = setup <!> teardown
   where
 	setup = setuphttp

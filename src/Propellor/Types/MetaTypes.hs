@@ -8,6 +8,8 @@ module Propellor.Types.MetaTypes (
 	Debian,
 	Buntish,
 	FreeBSD,
+	UsingPort,
+	Nat,
 	HasInfo,
 	MetaTypes,
 	type (+),
@@ -34,7 +36,7 @@ import GHC.TypeLits (KnownNat)
 data MetaType
 	= WithInfo           -- ^ Indicates that a Property has associated Info
 	| Targeting TargetOS -- ^ A target OS of a Property
-	| UsingPort Nat      -- ^ Indicates that a Property opens a Port
+	| UsingPort' Nat      -- ^ Indicates that a Property opens a Port
 
 -- | Any unix-like system
 type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSFreeBSD ]
@@ -45,6 +47,8 @@ type DebianLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish ]
 type Debian = MetaTypes '[ 'Targeting 'OSDebian ]
 type Buntish = MetaTypes '[ 'Targeting 'OSBuntish ]
 type FreeBSD = MetaTypes '[ 'Targeting 'OSFreeBSD ]
+
+type UsingPort n = MetaTypes '[ 'UsingPort' n ]
 
 -- | Used to indicate that a Property adds Info to the Host where it's used.
 type HasInfo = MetaTypes '[ 'WithInfo ]
@@ -61,12 +65,12 @@ data instance Sing (x :: MetaType) where
 	OSDebianS :: Sing ('Targeting 'OSDebian)
 	OSBuntishS :: Sing ('Targeting 'OSBuntish)
 	OSFreeBSDS :: Sing ('Targeting 'OSFreeBSD)
-	UsingPortS :: Sing n -> Sing ('UsingPort n)
+	UsingPortS :: Sing n -> Sing ('UsingPort' n)
 instance SingI 'WithInfo where sing = WithInfoS
 instance SingI ('Targeting 'OSDebian) where sing = OSDebianS
 instance SingI ('Targeting 'OSBuntish) where sing = OSBuntishS
 instance SingI ('Targeting 'OSFreeBSD) where sing = OSFreeBSDS
-instance KnownNat n => SingI ('UsingPort (n :: Nat)) where sing = UsingPortS sing
+instance KnownNat n => SingI ('UsingPort' (n :: Nat)) where sing = UsingPortS sing
 instance SingKind ('KProxy :: KProxy MetaType) where
 	type DemoteRep ('KProxy :: KProxy MetaType) = MetaType
 	fromSing WithInfoS = WithInfo
@@ -75,7 +79,7 @@ instance SingKind ('KProxy :: KProxy MetaType) where
 	fromSing OSFreeBSDS = Targeting OSFreeBSD
 	-- undefined because fromSing yields an Integer here, and there's
 	-- no way to get from there to a Nat.
-	fromSing (UsingPortS _) = UsingPort undefined
+	fromSing (UsingPortS _) = UsingPort' undefined
 
 -- | Convenience type operator to combine two `MetaTypes` lists.
 --
@@ -140,7 +144,7 @@ type instance NotSuperset superset (s ': rest) =
 type family IsTarget (a :: t) :: Bool
 type instance IsTarget ('Targeting a) = 'True
 type instance IsTarget 'WithInfo = 'False
-type instance IsTarget ('UsingPort n) = 'False
+type instance IsTarget ('UsingPort' n) = 'False
 
 type family Targets (l :: [a]) :: [a]
 type instance Targets '[] = '[]
@@ -181,15 +185,15 @@ type instance Intersect (a ': rest) list2 =
 --
 -- This is a very clumsy implmentation, but it works back to ghc 7.6.
 type family EqT (a :: t) (b :: t) :: Bool
-type instance EqT ('Targeting a) ('Targeting b) = EqT a b
-type instance EqT 'WithInfo      'WithInfo      = 'True
-type instance EqT ('UsingPort a) ('UsingPort b) = EqT a b
-type instance EqT 'WithInfo      ('Targeting b) = 'False
-type instance EqT 'WithInfo      ('UsingPort b) = 'False
-type instance EqT ('Targeting a) 'WithInfo      = 'False
-type instance EqT ('Targeting a) ('UsingPort b) = 'False
-type instance EqT ('UsingPort a) 'WithInfo      = 'False
-type instance EqT ('UsingPort a) ('Targeting b) = 'False
+type instance EqT ('Targeting a)  ('Targeting b)  = EqT a b
+type instance EqT 'WithInfo       'WithInfo       = 'True
+type instance EqT ('UsingPort' a) ('UsingPort' b) = EqT a b
+type instance EqT 'WithInfo       ('Targeting b)  = 'False
+type instance EqT 'WithInfo       ('UsingPort' b) = 'False
+type instance EqT ('Targeting a)  'WithInfo       = 'False
+type instance EqT ('Targeting a)  ('UsingPort' b) = 'False
+type instance EqT ('UsingPort' a) 'WithInfo       = 'False
+type instance EqT ('UsingPort' a) ('Targeting b)  = 'False
 type instance EqT 'OSDebian  'OSDebian  = 'True
 type instance EqT 'OSBuntish 'OSBuntish = 'True
 type instance EqT 'OSFreeBSD 'OSFreeBSD = 'True
