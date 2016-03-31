@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP, DataKinds, PolyKinds, TypeOperators, TypeFamilies, GADTs, FlexibleInstances, UndecidableInstances, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, DataKinds, PolyKinds, TypeOperators, TypeFamilies, GADTs, FlexibleInstances, UndecidableInstances, ScopedTypeVariables, FlexibleContexts #-}
 
--- | Simple implementation of singletons, portable back to ghc 7.6.3
+-- | Basic implementation of singletons, portable back to ghc 7.6.3
 
 module Propellor.Types.Singletons (
 	module Propellor.Types.Singletons,
@@ -9,14 +9,14 @@ module Propellor.Types.Singletons (
 ) where
 
 #if __GLASGOW_HASKELL__ > 707
-import Data.Proxy (KProxy(..))
 import GHC.TypeLits
-#else
-data KProxy (a :: *) = KProxy
-import GHC.TypeLits (Nat, Symbol)
-import qualified GHC.TypeLits as TL
-#endif
 import Data.Proxy
+import Data.Proxy (KProxy(..))
+#else
+import GHC.TypeLits (Nat)
+import qualified GHC.TypeLits as TL
+data KProxy (a :: *) = KProxy
+#endif
 
 -- | The data family of singleton types.
 data family Sing (x :: k)
@@ -55,9 +55,16 @@ instance SingKind ('KProxy :: KProxy Bool) where
 
 -- Singleton nats
 type SNat (x :: Nat) = Sing x
+#if __GLASGOW_HASKELL__ > 707
 data instance Sing (n :: Nat) = KnownNat n => SNat
 instance KnownNat n => SingI n where sing = SNat
 instance SingKind ('KProxy :: KProxy Nat) where
 	type DemoteRep ('KProxy :: KProxy Nat) = Integer
 	fromSing (SNat :: Sing n) = natVal (Proxy :: Proxy n)
--- TODO old ghc
+#else
+data instance Sing (n :: Nat) = TL.SingRep n Integer => SNat
+instance TL.SingRep n Integer => SingI (n :: Nat) where sing = SNat
+instance SingKind ('KProxy :: KProxy Nat) where
+	type DemoteRep ('KProxy :: KProxy Nat) = Integer
+	fromSing (SNat :: Sing n) = TL.fromSing (TL.sing :: TL.Sing n)
+#endif
