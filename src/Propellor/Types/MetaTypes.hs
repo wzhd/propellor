@@ -29,10 +29,13 @@ module Propellor.Types.MetaTypes (
 import Propellor.Types.Singletons
 import Propellor.Types.OS
 
+import Numeric.Natural
+import GHC.TypeLits (KnownNat, natVal)
+
 data MetaType
-	= Targeting TargetOS -- ^ A target OS of a Property
-	| WithInfo           -- ^ Indicates that a Property has associated Info
-	deriving (Show, Eq, Ord)
+	= WithInfo           -- ^ Indicates that a Property has associated Info
+	| Targeting TargetOS -- ^ A target OS of a Property
+	| UsingPort Natural  -- ^ Indicates that a Property opens a Port
 
 -- | Any unix-like system
 type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSFreeBSD ]
@@ -55,20 +58,23 @@ type MetaTypes = Sing
 -- This boilerplate would not be needed if the singletons library were
 -- used. However, we're targeting too old a version of ghc to use it yet.
 data instance Sing (x :: MetaType) where
+	WithInfoS :: Sing 'WithInfo
 	OSDebianS :: Sing ('Targeting 'OSDebian)
 	OSBuntishS :: Sing ('Targeting 'OSBuntish)
 	OSFreeBSDS :: Sing ('Targeting 'OSFreeBSD)
-	WithInfoS :: Sing 'WithInfo
+	UsingPortS :: Sing n -> Sing ('UsingPort n)
+instance SingI 'WithInfo where sing = WithInfoS
 instance SingI ('Targeting 'OSDebian) where sing = OSDebianS
 instance SingI ('Targeting 'OSBuntish) where sing = OSBuntishS
 instance SingI ('Targeting 'OSFreeBSD) where sing = OSFreeBSDS
-instance SingI 'WithInfo where sing = WithInfoS
+instance KnownNat n => SingI ('UsingPort (n :: Nat)) where sing = UsingPortS sing
 instance SingKind ('KProxy :: KProxy MetaType) where
 	type DemoteRep ('KProxy :: KProxy MetaType) = MetaType
+	fromSing WithInfoS = WithInfo
 	fromSing OSDebianS = Targeting OSDebian
 	fromSing OSBuntishS = Targeting OSBuntish
 	fromSing OSFreeBSDS = Targeting OSFreeBSD
-	fromSing WithInfoS = WithInfo
+	fromSing (UsingPortS n) = UsingPort (fromSing n)
 
 -- | Convenience type operator to combine two `MetaTypes` lists.
 --
