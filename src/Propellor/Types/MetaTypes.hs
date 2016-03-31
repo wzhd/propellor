@@ -29,13 +29,12 @@ module Propellor.Types.MetaTypes (
 import Propellor.Types.Singletons
 import Propellor.Types.OS
 
-import Numeric.Natural
-import GHC.TypeLits (KnownNat, natVal)
+import GHC.TypeLits (KnownNat)
 
 data MetaType
 	= WithInfo           -- ^ Indicates that a Property has associated Info
 	| Targeting TargetOS -- ^ A target OS of a Property
-	| UsingPort Natural  -- ^ Indicates that a Property opens a Port
+	| UsingPort Nat      -- ^ Indicates that a Property opens a Port
 
 -- | Any unix-like system
 type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSFreeBSD ]
@@ -74,7 +73,9 @@ instance SingKind ('KProxy :: KProxy MetaType) where
 	fromSing OSDebianS = Targeting OSDebian
 	fromSing OSBuntishS = Targeting OSBuntish
 	fromSing OSFreeBSDS = Targeting OSFreeBSD
-	fromSing (UsingPortS n) = UsingPort (fromSing n)
+	-- undefined because fromSing yields an Integer here, and there's
+	-- no way to get from there to a Nat.
+	fromSing (UsingPortS _) = UsingPort undefined
 
 -- | Convenience type operator to combine two `MetaTypes` lists.
 --
@@ -139,6 +140,7 @@ type instance NotSuperset superset (s ': rest) =
 type family IsTarget (a :: t) :: Bool
 type instance IsTarget ('Targeting a) = 'True
 type instance IsTarget 'WithInfo = 'False
+type instance IsTarget ('UsingPort n) = 'False
 
 type family Targets (l :: [a]) :: [a]
 type instance Targets '[] = '[]
@@ -179,10 +181,15 @@ type instance Intersect (a ': rest) list2 =
 --
 -- This is a very clumsy implmentation, but it works back to ghc 7.6.
 type family EqT (a :: t) (b :: t) :: Bool
-type instance EqT ('Targeting a) ('Targeting b)  = EqT a b
-type instance EqT 'WithInfo      'WithInfo       = 'True
-type instance EqT 'WithInfo      ('Targeting b)  = 'False
-type instance EqT ('Targeting a) 'WithInfo       = 'False
+type instance EqT ('Targeting a) ('Targeting b) = EqT a b
+type instance EqT 'WithInfo      'WithInfo      = 'True
+type instance EqT ('UsingPort a) ('UsingPort b) = EqT a b
+type instance EqT 'WithInfo      ('Targeting b) = 'False
+type instance EqT 'WithInfo      ('UsingPort b) = 'False
+type instance EqT ('Targeting a) 'WithInfo      = 'False
+type instance EqT ('Targeting a) ('UsingPort b) = 'False
+type instance EqT ('UsingPort a) 'WithInfo      = 'False
+type instance EqT ('UsingPort a) ('Targeting b) = 'False
 type instance EqT 'OSDebian  'OSDebian  = 'True
 type instance EqT 'OSBuntish 'OSBuntish = 'True
 type instance EqT 'OSFreeBSD 'OSFreeBSD = 'True

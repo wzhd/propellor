@@ -295,10 +295,9 @@ pickOS a b = c `addChildren` [toChildProperty a, toChildProperty b]
 				then getSatisfy b
 				else unsupportedOS'
 	matching Nothing _ = False
-	matching (Just o) p = 
-		Targeting (systemToTargetOS o)
-			`elem`
-		fromSing (proptype p)
+	matching (Just o) p = any (matching' o) (fromSing (proptype p))
+	matching' o (Targeting t) = systemToTargetOS o == t
+	matching' _ _ = False
 	proptype (Property t _ _ _ _) = t
 
 -- | Makes a property that is satisfied differently depending on specifics
