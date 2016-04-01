@@ -1,8 +1,8 @@
-propellor (2.17.2-1) UNRELEASED; urgency=low
+propellor (2.17.2-1) unstable; urgency=low
 
   * New upstream version.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Thu, 31 Mar 2016 17:25:37 -0700
+ -- Sean Whitton <spwhitton@spwhitton.name>  Thu, 31 Mar 2016 17:26:19 -0700
 
 propellor (2.17.2) unstable; urgency=medium
 
