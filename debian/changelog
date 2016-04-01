@@ -1,3 +1,9 @@
+propellor (2.17.2-1) UNRELEASED; urgency=low
+
+  * New upstream version.
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Thu, 31 Mar 2016 17:25:37 -0700
+
 propellor (2.17.2) unstable; urgency=medium
 
   * When new dependencies are added to propellor or the propellor config,
