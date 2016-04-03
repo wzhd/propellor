@@ -1,4 +1,4 @@
-propellor (3.0.0-1) UNRELEASED; urgency=medium
+propellor (3.0.0-1) unstable; urgency=medium
 
   This version of Propellor introduces a new dependency on the
   concurrent-output Haskell library.  If you were using a version of
@@ -20,4 +20,4 @@ propellor (3.0.0-1) UNRELEASED; urgency=medium
   For a guide to upgrading your config.hs for Propellor version 3, see
   <http://propellor.branchable.com/forum/upgrading_to_propellor_3.0/>.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 03 Apr 2016 11:12:39 -0700
+ -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 03 Apr 2016 11:35:35 -0700
