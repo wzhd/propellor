@@ -1,3 +1,9 @@
+propellor (3.0.1-1) UNRELEASED; urgency=medium
+
+  * Package new upstream release.
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Wed, 06 Apr 2016 07:13:48 -0700
+
 propellor (3.0.1) unstable; urgency=medium
 
   * propellor --init now runs cabal sandbox init if cabal has been
