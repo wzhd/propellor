@@ -29,7 +29,8 @@ module Propellor.Types (
 	, UsingPort
 	, Nat
 	, type (+)
-	, TightenTargets(..)
+	, HasMetaTypes(..)
+	, usedPorts
 	-- * Combining and modifying properties
 	, Combines(..)
 	, CombinedType
@@ -176,7 +177,7 @@ instance (CheckCombinable x y ~ 'CanCombine, SingI (Combine x y)) => Combines (R
 instance (CheckCombinable x y ~ 'CanCombine, SingI (Combine x y)) => Combines (Property (MetaTypes x)) (RevertableProperty (MetaTypes y) (MetaTypes y')) where
 	combineWith sf tf x (RevertableProperty y _) = combineWith sf tf x y
 
-class TightenTargets p where
+class HasMetaTypes p where
 	-- | Tightens the MetaType list of a Property,
 	-- to contain fewer targets.
 	--
@@ -223,7 +224,15 @@ class TightenTargets p where
 		=> p (MetaTypes before)
 		-> p (MetaTypes after)
 	usesPorts = usesResources
+	-- | Gets a property's metatypes singleton.
+	--
+	-- For example, to get the ports that a Property's metatypes
+	-- says it uses:
+	--
+	-- > usedPorts (getMetaTypes p)
+	getMetaTypes :: p metatypes -> metatypes
 
-instance TightenTargets Property where
+instance HasMetaTypes Property where
 	tightenTargets (Property _ d a i c) = Property sing d a i c
 	usesResources (Property _ d a i c) = Property sing d a i c
+	getMetaTypes (Property t _ _ _ _) = t

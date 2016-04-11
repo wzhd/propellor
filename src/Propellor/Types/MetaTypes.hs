@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeOperators, PolyKinds, DataKinds, TypeFamilies, UndecidableInstances, FlexibleInstances, GADTs #-}
+{-# LANGUAGE TypeOperators, PolyKinds, DataKinds, TypeFamilies, UndecidableInstances, FlexibleInstances, GADTs, ScopedTypeVariables, FlexibleContexts #-}
 
 module Propellor.Types.MetaTypes (
 	MetaType(..),
@@ -15,6 +15,7 @@ module Propellor.Types.MetaTypes (
 	type (+),
 	sing,
 	SingI,
+	UsedPorts(..),
 	IncludesInfo,
 	Targets,
 	NonTargets,
@@ -82,6 +83,18 @@ instance SingKind ('KProxy :: KProxy MetaType) where
 	-- undefined because fromSing yields an Integer here, and there's
 	-- no way to get from there to a Nat.
 	fromSing (UsingPortS _) = UsingPort' undefined
+
+-- | From a metatypes singleton to a list of ports used.
+class (kparam ~ 'KProxy) => UsedPorts (kparam :: KProxy k) where
+	usedPorts :: Sing (a :: k) -> [Integer]
+instance UsedPorts ('KProxy :: KProxy Nat) where
+        usedPorts n@(SNat :: Sing n) = [fromSing n]
+instance UsedPorts ('KProxy :: KProxy a) => UsedPorts ('KProxy :: KProxy [a]) where
+	usedPorts Nil = []
+	usedPorts (Cons x xs) = usedPorts x ++ usedPorts xs
+instance UsedPorts ('KProxy :: KProxy MetaType) where
+	usedPorts (UsingPortS n) = usedPorts n
+	usedPorts _ = []
 
 -- | Convenience type operator to combine two `MetaTypes` lists.
 --

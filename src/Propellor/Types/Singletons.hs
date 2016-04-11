@@ -5,7 +5,8 @@
 module Propellor.Types.Singletons (
 	module Propellor.Types.Singletons,
 	KProxy(..),
-	Nat
+	Proxy(..),
+	Nat,
 ) where
 
 #if __GLASGOW_HASKELL__ > 707
