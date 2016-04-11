@@ -10,8 +10,7 @@ module Propellor.Types.Singletons (
 
 #if __GLASGOW_HASKELL__ > 707
 import GHC.TypeLits
-import Data.Proxy
-import Data.Proxy (KProxy(..))
+import Data.Proxy (KProxy(..), Proxy(..))
 #else
 import GHC.TypeLits (Nat)
 import qualified GHC.TypeLits as TL

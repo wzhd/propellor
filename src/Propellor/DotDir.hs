@@ -270,7 +270,7 @@ minimalConfig = do
 		, "Executable propellor-config"
 		, "  Main-Is: config.hs"
 		, "  GHC-Options: -threaded -Wall -fno-warn-tabs -O0"
-		, "  Extensions: TypeOperators"
+		, "  Extensions: TypeOperators, DataKinds"
 		, "  Build-Depends: propellor >= 3.0, base >= 3"
 		]
 	configcontent = 

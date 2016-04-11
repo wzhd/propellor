@@ -38,7 +38,7 @@ Description:
 Executable propellor
   Main-Is: wrapper.hs
   GHC-Options: -threaded -Wall -fno-warn-tabs -O0
-  Extensions: TypeOperators
+  Extensions: TypeOperators, DataKinds
   Hs-Source-Dirs: src
   Build-Depends:
     -- propellor needs to support the ghc shipped in Debian stable,
@@ -51,7 +51,7 @@ Executable propellor
 Executable propellor-config
   Main-Is: config.hs
   GHC-Options: -threaded -Wall -fno-warn-tabs -O0
-  Extensions: TypeOperators
+  Extensions: TypeOperators, DataKinds
   Hs-Source-Dirs: src
   Build-Depends: 
     base >= 4.5, base < 5,
@@ -61,7 +61,7 @@ Executable propellor-config
 
 Library
   GHC-Options: -Wall -fno-warn-tabs -O0
-  Extensions: TypeOperators
+  Extensions: TypeOperators, DataKinds
   Hs-Source-Dirs: src
   Build-Depends: 
     base >= 4.5, base < 5,
