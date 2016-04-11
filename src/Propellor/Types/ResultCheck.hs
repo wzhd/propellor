@@ -24,6 +24,7 @@ data UncheckedProperty i = UncheckedProperty (Property i)
 
 instance TightenTargets UncheckedProperty where
 	tightenTargets (UncheckedProperty p) = UncheckedProperty (tightenTargets p)
+	usesResources (UncheckedProperty p) = UncheckedProperty (usesResources p)
 
 -- | Use to indicate that a Property is unchecked.
 unchecked :: Property i -> UncheckedProperty i

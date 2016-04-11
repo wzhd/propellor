@@ -38,7 +38,7 @@ import Prelude
 ensureProperty
 	::
 		( Cannot_ensureProperty_WithInfo inner ~ 'True
-		, (Targets inner `NotSuperset` Targets outer) ~ 'CanCombine
+		, (Targets inner `Superset` Targets outer) ~ 'CanCombine
 		)
 	=> OuterMetaTypesWitness outer
 	-> Property (MetaTypes inner)

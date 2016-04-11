@@ -23,7 +23,7 @@ siteEnabled :: Domain -> ConfigFile -> RevertableProperty (UsingPort 80 + Debian
 siteEnabled domain cf = siteEnabled' domain cf <!> siteDisabled domain
 
 siteEnabled' :: Domain -> ConfigFile -> Property (UsingPort 80 + DebianLike)
-siteEnabled' domain cf = combineProperties ("apache site enabled " ++ domain) $ props
+siteEnabled' domain cf = usesPorts $ combineProperties ("apache site enabled " ++ domain) $ props
 	& siteAvailable domain cf
 		`requires` installed
 		`onChange` reloaded
@@ -164,8 +164,9 @@ httpsVirtualHost domain docroot letos = httpsVirtualHost' domain docroot letos [
 
 -- | Like `httpsVirtualHost` but with additional config lines added.
 httpsVirtualHost' :: Domain -> WebRoot -> LetsEncrypt.AgreeTOS -> [ConfigLine] -> RevertableProperty (UsingPort 80 + UsingPort 443 + DebianLike) DebianLike
-httpsVirtualHost' domain docroot letos addedcfg = setup <!> teardown
+httpsVirtualHost' domain docroot letos addedcfg = usesPorts setup <!> teardown
   where
+  	setup :: Property (UsingPort 80 + DebianLike)
 	setup = setuphttp
 		`requires` modEnabled "rewrite"
 		`requires` modEnabled "ssl"

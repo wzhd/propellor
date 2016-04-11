@@ -18,7 +18,9 @@ module Propellor.Types.MetaTypes (
 	IncludesInfo,
 	Targets,
 	NonTargets,
-	NotSuperset,
+	Resources,
+	NonResources,
+	Superset,
 	Combine,
 	CheckCombine(..),
 	CheckCombinable,
@@ -31,12 +33,12 @@ module Propellor.Types.MetaTypes (
 import Propellor.Types.Singletons
 import Propellor.Types.OS
 
-import GHC.TypeLits (KnownNat)
+import GHC.TypeLits (KnownNat, type (<=?))
 
 data MetaType
 	= WithInfo           -- ^ Indicates that a Property has associated Info
 	| Targeting TargetOS -- ^ A target OS of a Property
-	| UsingPort' Nat      -- ^ Indicates that a Property opens a Port
+	| UsingPort' Nat     -- ^ Indicates that a Property opens a Port
 
 -- | Any unix-like system
 type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSFreeBSD ]
@@ -132,13 +134,11 @@ type instance CheckCombinable' (a ': rest)
 data CheckCombine = CannotCombineTargets | CanCombine
 
 -- | Every item in the subset must be in the superset.
---
--- The name of this was chosen to make type errors more understandable.
-type family NotSuperset (superset :: [a]) (subset :: [a]) :: CheckCombine
-type instance NotSuperset superset '[] = 'CanCombine
-type instance NotSuperset superset (s ': rest) =
+type family Superset (superset :: [a]) (subset :: [a]) :: CheckCombine
+type instance Superset superset '[] = 'CanCombine
+type instance Superset superset (s ': rest) =
 	If (Elem s superset)
-		(NotSuperset superset rest)
+		(Superset superset rest)
 		'CannotCombineTargets
 
 type family IsTarget (a :: t) :: Bool
@@ -159,6 +159,25 @@ type instance NonTargets (x ': xs) =
 	If (IsTarget x)
 		(NonTargets xs)
 		(x ': NonTargets xs)
+
+type family IsResource (a :: t) :: Bool
+type instance IsResource ('Targeting a) = 'False
+type instance IsResource 'WithInfo = 'False
+type instance IsResource ('UsingPort' n) = 'True
+
+type family Resources (l :: [a]) :: [a]
+type instance Resources '[] = '[]
+type instance Resources (x ': xs) =
+	If (IsResource x)
+		(x ': Resources xs)
+		(Resources xs)
+
+type family NonResources (l :: [a]) :: [a]
+type instance NonResources '[] = '[]
+type instance NonResources (x ': xs) =
+	If (IsResource x)
+		(NonResources xs)
+		(x ': NonResources xs)
 
 -- | Type level elem
 type family Elem (a :: t) (list :: [t]) :: Bool
@@ -187,13 +206,13 @@ type instance Intersect (a ': rest) list2 =
 type family EqT (a :: t) (b :: t) :: Bool
 type instance EqT ('Targeting a)  ('Targeting b)  = EqT a b
 type instance EqT 'WithInfo       'WithInfo       = 'True
-type instance EqT ('UsingPort' a) ('UsingPort' b) = EqT a b
 type instance EqT 'WithInfo       ('Targeting b)  = 'False
 type instance EqT 'WithInfo       ('UsingPort' b) = 'False
 type instance EqT ('Targeting a)  'WithInfo       = 'False
 type instance EqT ('Targeting a)  ('UsingPort' b) = 'False
 type instance EqT ('UsingPort' a) 'WithInfo       = 'False
 type instance EqT ('UsingPort' a) ('Targeting b)  = 'False
+type instance EqT ('UsingPort' a) ('UsingPort' b) = (a <=? b) && (b <=? a)
 type instance EqT 'OSDebian  'OSDebian  = 'True
 type instance EqT 'OSBuntish 'OSBuntish = 'True
 type instance EqT 'OSFreeBSD 'OSFreeBSD = 'True
@@ -203,6 +222,12 @@ type instance EqT 'OSBuntish 'OSDebian  = 'False
 type instance EqT 'OSBuntish 'OSFreeBSD = 'False
 type instance EqT 'OSFreeBSD 'OSDebian  = 'False
 type instance EqT 'OSFreeBSD 'OSBuntish = 'False
+type instance EqT 'True  'True  = 'True
+type instance EqT 'False 'False = 'False
+type instance EqT 'True  'False = 'False
+type instance EqT 'False 'True  = 'False
+type instance EqT '[] '[] = 'True
+type instance EqT (a ': as) (b ': bs) = EqT a b && EqT as bs
 -- More modern version if the combinatiorial explosion gets too bad later:
 --
 -- type family Eq (a :: MetaType) (b :: MetaType) where

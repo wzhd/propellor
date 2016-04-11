@@ -177,7 +177,7 @@ instance (CheckCombinable x y ~ 'CanCombine, SingI (Combine x y)) => Combines (P
 	combineWith sf tf x (RevertableProperty y _) = combineWith sf tf x y
 
 class TightenTargets p where
-	-- | Tightens the MetaType list of a Property (or similar),
+	-- | Tightens the MetaType list of a Property,
 	-- to contain fewer targets.
 	--
 	-- For example, to make a property that uses apt-get, which is only
@@ -188,12 +188,42 @@ class TightenTargets p where
 	tightenTargets
 		:: 
 			-- Note that this uses PolyKinds
-			( (Targets untightened `NotSuperset` Targets tightened) ~ 'CanCombine
-			, (NonTargets tightened `NotSuperset` NonTargets untightened) ~ 'CanCombine
+			( (Targets untightened `Superset` Targets tightened) ~ 'CanCombine
+			, (NonTargets untightened `EqT` NonTargets tightened) ~ 'True
 			, SingI tightened
 			)
 		=> p (MetaTypes untightened)
 		-> p (MetaTypes tightened)
+	
+	-- | Indicates that a Property uses additional resources.
+	usesResources
+		:: 
+			-- Note that this uses PolyKinds
+			( (NonResources before `EqT` NonResources after) ~ 'True
+			, (Resources after `Superset` Resources before) ~ 'CanCombine
+			, SingI after
+			)
+		=> p (MetaTypes before)
+		-> p (MetaTypes after)
+	-- | Convenience alias for `addResources`, for the common case
+	-- where a Property uses a port.
+	--
+	-- For example, to make a property that uses port 80 out of a
+	-- property that does not:
+	--
+	-- > apacheInstalled :: Property (UsingPort 80 + DebianLike)
+	-- > apacheInstalled = usesPorts $ cmdProperty "apt-get" ["install", "apache2"]
+	usesPorts
+		:: 
+			-- Note that this uses PolyKinds
+			( (NonResources before `EqT` NonResources after) ~ 'True
+			, (Resources after `Superset` Resources before) ~ 'CanCombine
+			, SingI after
+			)
+		=> p (MetaTypes before)
+		-> p (MetaTypes after)
+	usesPorts = usesResources
 
 instance TightenTargets Property where
 	tightenTargets (Property _ d a i c) = Property sing d a i c
+	usesResources (Property _ d a i c) = Property sing d a i c
