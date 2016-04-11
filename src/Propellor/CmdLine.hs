@@ -16,6 +16,7 @@ import Propellor.Git.VerifiedBranch
 import Propellor.Bootstrap
 import Propellor.Spin
 import Propellor.Types.CmdLine
+import Propellor.DotDir (interactiveInit)
 import qualified Propellor.Property.Docker as Docker
 import qualified Propellor.Property.Chroot as Chroot
 import qualified Propellor.Shim as Shim
@@ -23,6 +24,7 @@ import qualified Propellor.Shim as Shim
 usage :: Handle -> IO ()
 usage h = hPutStrLn h $ unlines
 	[ "Usage:"
+	, "  propellor --init"
 	, "  propellor"
 	, "  propellor hostname"
 	, "  propellor --spin targethost [--via relayhost]"
@@ -69,6 +71,7 @@ processCmdLine = go =<< getArgs
 	go ("--serialized":s:[]) = serialized Serialized s
 	go ("--continue":s:[]) = serialized Continue s
 	go ("--gitpush":fin:fout:_) = return $ GitPush (Prelude.read fin) (Prelude.read fout)
+	go ("--init":_) = return Init
 	go ("--run":h:[]) = go [h]
 	go (h:[])
 		| "--" `isPrefixOf` h = usageError [h]
@@ -114,22 +117,23 @@ defaultMain hostlist = withConcurrentOutput $ do
 	go _ (DockerInit hn) = Docker.init hn
 	go _ (GitPush fin fout) = gitPushHelper fin fout
 	go cr (Relay h) = forceConsole >>
-		updateFirst cr (Update (Just h)) (update (Just h))
+		updateFirst Nothing cr (Update (Just h)) (update (Just h))
 	go _ (Update Nothing) = forceConsole >>
 		fetchFirst (onlyprocess (update Nothing))
 	go _ (Update (Just h)) = update (Just h)
 	go _ Merge = mergeSpin
-	go cr cmdline@(Spin hs mrelay) = buildFirst cr cmdline $ do
+	go cr cmdline@(Spin hs mrelay) = buildFirst Nothing cr cmdline $ do
 		unless (isJust mrelay) commitSpin
 		forM_ hs $ \hn -> withhost hn $ spin mrelay hn
 	go cr cmdline@(Run hn) = ifM ((==) 0 <$> getRealUserID)
-		( updateFirst cr cmdline $ runhost hn
+		( updateFirst (findHost hostlist hn) cr cmdline $ runhost hn
 		, fetchFirst $ go cr (Spin [hn] Nothing)
 		)
 	go cr cmdline@(SimpleRun hn) = forceConsole >>
-		fetchFirst (buildFirst cr cmdline (runhost hn))
+		fetchFirst (buildFirst (findHost hostlist hn) cr cmdline (runhost hn))
 	-- When continuing after a rebuild, don't want to rebuild again.
 	go _ (Continue cmdline) = go NoRebuild cmdline
+	go _ Init = interactiveInit
 
 	withhost :: HostName -> (Host -> IO ()) -> IO ()
 	withhost hn a = maybe (unknownhost hn hostlist) a (findHost hostlist hn)
@@ -149,17 +153,20 @@ unknownhost h hosts = errorMessage $ unlines
 -- Builds propellor (when allowed) and if it looks like a new binary,
 -- re-execs it to continue.
 -- Otherwise, runs the IO action to continue.
-buildFirst :: CanRebuild -> CmdLine -> IO () -> IO ()
-buildFirst CanRebuild cmdline next = do
+--
+-- The Host should only be provided when dependencies should be installed
+-- as needed to build propellor.
+buildFirst :: Maybe Host -> CanRebuild -> CmdLine -> IO () -> IO ()
+buildFirst h CanRebuild cmdline next = do
 	oldtime <- getmtime
-	buildPropellor
+	buildPropellor h
 	newtime <- getmtime
 	if newtime == oldtime
 		then next
 		else continueAfterBuild cmdline
   where
 	getmtime = catchMaybeIO $ getModificationTime "propellor"
-buildFirst NoRebuild _ next = next
+buildFirst _ NoRebuild _ next = next
 
 continueAfterBuild :: CmdLine -> IO a
 continueAfterBuild cmdline = go =<< boolSystem "./propellor"
@@ -176,23 +183,23 @@ fetchFirst next = do
 		void fetchOrigin
 	next
 
-updateFirst :: CanRebuild -> CmdLine -> IO () -> IO ()
-updateFirst canrebuild cmdline next = ifM hasOrigin
-	( updateFirst' canrebuild cmdline next
+updateFirst :: Maybe Host -> CanRebuild -> CmdLine -> IO () -> IO ()
+updateFirst h canrebuild cmdline next = ifM hasOrigin
+	( updateFirst' h canrebuild cmdline next
 	, next
 	)
 
 -- If changes can be fetched from origin,  Builds propellor (when allowed)
 -- and re-execs the updated propellor binary to continue.
 -- Otherwise, runs the IO action to continue.
-updateFirst' :: CanRebuild -> CmdLine -> IO () -> IO ()
-updateFirst' CanRebuild cmdline next = ifM fetchOrigin
+updateFirst' :: Maybe Host -> CanRebuild -> CmdLine -> IO () -> IO ()
+updateFirst' h CanRebuild cmdline next = ifM fetchOrigin
 	( do
-		buildPropellor
+		buildPropellor h
 		continueAfterBuild cmdline
 	, next
 	)
-updateFirst' NoRebuild _ next = next
+updateFirst' _ NoRebuild _ next = next
 
 -- Gets the fully qualified domain name, given a string that might be
 -- a short name to look up in the DNS.

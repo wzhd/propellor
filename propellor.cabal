@@ -1,5 +1,5 @@
 Name: propellor
-Version: 3.0.0
+Version: 3.0.1
 Cabal-Version: >= 1.8
 License: BSD3
 Maintainer: Joey Hess <id@joeyh.name>
@@ -20,6 +20,7 @@ Extra-Source-Files:
   joeyconfig.hs
   config.hs
   contrib/post-merge-hook
+  stack.yaml
   debian/changelog
   debian/README.Debian
   debian/compat
@@ -40,12 +41,12 @@ Executable propellor
   Extensions: TypeOperators
   Hs-Source-Dirs: src
   Build-Depends:
-    -- propellor needs to support the ghc shipped in Debian stable
+    -- propellor needs to support the ghc shipped in Debian stable,
+    -- and also only depends on packages in Debian stable.
     base >= 4.5, base < 5,
     MissingH, directory, filepath, IfElse, process, bytestring, hslogger,
     unix, unix-compat, ansi-terminal, containers (>= 0.5), network, async,
-    time, mtl, transformers, exceptions (>= 0.6), stm, text,
-    concurrent-output
+    time, mtl, transformers, exceptions (>= 0.6), stm, text
 
 Executable propellor-config
   Main-Is: config.hs
@@ -56,8 +57,7 @@ Executable propellor-config
     base >= 4.5, base < 5,
     MissingH, directory, filepath, IfElse, process, bytestring, hslogger,
     unix, unix-compat, ansi-terminal, containers (>= 0.5), network, async,
-    time, mtl, transformers, exceptions (>= 0.6), stm, text,
-    concurrent-output
+    time, mtl, transformers, exceptions (>= 0.6), stm, text
 
 Library
   GHC-Options: -Wall -fno-warn-tabs -O0
@@ -67,8 +67,7 @@ Library
     base >= 4.5, base < 5,
     MissingH, directory, filepath, IfElse, process, bytestring, hslogger,
     unix, unix-compat, ansi-terminal, containers (>= 0.5), network, async,
-    time, mtl, transformers, exceptions (>= 0.6), stm, text,
-    concurrent-output
+    time, mtl, transformers, exceptions (>= 0.6), stm, text
 
   Exposed-Modules:
     Propellor
@@ -78,6 +77,7 @@ Library
     Propellor.Property.Aiccu
     Propellor.Property.Apache
     Propellor.Property.Apt
+    Propellor.Property.Apt.PPA
     Propellor.Property.Cmd
     Propellor.Property.Concurrent
     Propellor.Property.Conductor
@@ -98,6 +98,7 @@ Library
     Propellor.Property.FreeBSD
     Propellor.Property.FreeBSD.Pkg
     Propellor.Property.FreeBSD.Poudriere
+    Propellor.Property.Fstab
     Propellor.Property.Git
     Propellor.Property.Gpg
     Propellor.Property.Group
@@ -150,6 +151,7 @@ Library
     Propellor.Info
     Propellor.Message
     Propellor.Debug
+    Propellor.DotDir
     Propellor.PrivData
     Propellor.Engine
     Propellor.EnsureProperty
@@ -206,6 +208,9 @@ Library
     Utility.ThreadScheduler
     Utility.Tmp
     Utility.UserInfo
+    System.Console.Concurrent
+    System.Console.Concurrent.Internal
+    System.Process.Concurrent
 
 source-repository head
   type: git

@@ -43,7 +43,7 @@ main = defaultMain hosts --  /   \___-=O`/|O`/__|                      (____.'
   {- Propellor            -- \          / | /    )          _.-"-._
      Deployed -}          --  `/-==__ _/__|/__=-|          (       \_
 hosts :: [Host]          --   *             \ | |           '--------'
-hosts =                --                  (o)  `
+hosts =                 --                  (o)  `
 	[ darkstar
 	, gnu 
 	, clam
@@ -297,7 +297,6 @@ kite = host "kite.kitenet.net" $ props
 	& alias "mail.kitenet.net"
 	& JoeySites.kiteMailServer
 
-	& JoeySites.kitenetHttps
 	& JoeySites.legacyWebSites
 	& File.ownerGroup "/srv/web" (User "joey") (Group "joey")
 	& Apt.installed ["analog"]

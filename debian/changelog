@@ -1,8 +1,31 @@
-propellor (3.0.0) UNRELEASED; urgency=medium
+propellor (3.0.2) UNRELEASED; urgency=medium
+
+  * Added Apt.periodicUpdates.
+    Thanks, Félix Sipma.
+  * Apt.unattendedUpgrades: Enable mailing problems reports to root.
+    Thanks, Félix Sipma.
+  * Added Propellor.Property.Fstab, and moved the fstabbed property to there.
+
+ -- Joey Hess <id@joeyh.name>  Tue, 05 Apr 2016 13:48:47 -0400
+
+propellor (3.0.1) unstable; urgency=medium
+
+  * propellor --init now runs cabal sandbox init if cabal has been
+    configured with require-sandbox: True.
+    Thanks, Sean Whitton
+  * Re-bundled concurrent-output so propellor can be deployed to Debian
+    stable systems without installing it (insecurely) from hackage.
+
+ -- Joey Hess <id@joeyh.name>  Tue, 05 Apr 2016 13:35:54 -0400
+
+propellor (3.0.0) unstable; urgency=medium
 
   * Property types have been improved to indicate what systems they target.
     This prevents using eg, Property FreeBSD on a Debian system.
     Transition guide for this sweeping API change:
+    - First, upgrade to propellor 2.17.2 and deploy that to all your hosts.
+      Otherwise, propellor --spin will fail when you upgrade to
+      propellor 3.0.0.
     - Change "host name & foo & bar"
       to     "host name $ props & foo & bar"
     - Similarly, `propertyList` and `combineProperties` need `props`
@@ -60,8 +83,28 @@ propellor (3.0.0) UNRELEASED; urgency=medium
   * Re-enabled -O0 in propellor.cabal to reign in ghc's memory use handling
     these complex new types.
   * Added dependency on concurrent-output; removed embedded copy.
+  * Apt.PPA: New module, contributed by Evan Cofsky.
+  * Improved propellor's first run experience; propellor --init will
+    walk the user through setting up ~/.propellor, with a choice between
+    a clone of propellor's git repository, or a minimal config, and will
+    configure propellor to use a gpg key.
+  * Stack support. "git config propellor.buildsystem stack" will make
+    propellor build its config using stack.
+  * When propellor is installed using stack, propellor --init will
+    automatically set propellor.buildsystem=stack.
 
- -- Joey Hess <id@joeyh.name>  Thu, 24 Mar 2016 15:02:33 -0400
+ -- Joey Hess <id@joeyh.name>  Sat, 02 Apr 2016 15:33:26 -0400
+
+propellor (2.17.2) unstable; urgency=medium
+
+  * When new dependencies are added to propellor or the propellor config,
+    try harder to get them installed. In particular, this makes 
+    propellor --spin work when the remote host needs to get dependencies
+    installed in order to build the updated config.
+  * Apt.update: Also run dpkg --configure -a here as apt for some reason
+    won't even update if dpkg was interrupted.
+
+ -- Joey Hess <id@joeyh.name>  Wed, 30 Mar 2016 15:45:08 -0400
 
 propellor (2.17.1) unstable; urgency=medium
 
@@ -71,8 +114,6 @@ propellor (2.17.1) unstable; urgency=medium
   * Uwsgi: add ".ini" extension to app config files. 
     Files without extensions were ignored by uwsgi.
     Thanks, Félix Sipma.
-  * Apt.update: Also run dpkg --configure -a here as apt for some reason
-    won't even update if dpkg was interrupted.
 
  -- Joey Hess <id@joeyh.name>  Mon, 28 Mar 2016 11:06:34 -0400
 

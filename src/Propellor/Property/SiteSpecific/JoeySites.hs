@@ -20,6 +20,7 @@ import qualified Propellor.Property.Apache as Apache
 import qualified Propellor.Property.Postfix as Postfix
 import qualified Propellor.Property.Systemd as Systemd
 import qualified Propellor.Property.Fail2Ban as Fail2Ban
+import qualified Propellor.Property.LetsEncrypt as LetsEncrypt
 import Utility.FileMode
 
 import Data.List
@@ -125,7 +126,7 @@ oldUseNetServer hosts = propertyList "olduse.net server" $ props
 		, "find -type d -empty | xargs --no-run-if-empty rmdir"
 		]
 	uucpcommand = "/usr/bin/uucp " ++ datadir
-	nntpcfg = apachecfg "nntp.olduse.net" False
+	nntpcfg = apachecfg "nntp.olduse.net"
 		[ "  DocumentRoot " ++ datadir ++ "/"
 		, "  <Directory " ++ datadir ++ "/>"
 		, "    Options Indexes FollowSymlinks"
@@ -252,14 +253,14 @@ gitServer hosts = propertyList "git.kitenet.net setup" $ props
 	& Apache.modEnabled "cgi"
   where
 	sshkey = "/root/.ssh/git.kitenet.net.key"
-	website hn = apacheSite hn True
-		[ "  DocumentRoot /srv/web/git.kitenet.net/"
+	website hn = Apache.httpsVirtualHost' hn "/srv/web/git.kitenet.net/" letos
+		[ Apache.iconDir
 		, "  <Directory /srv/web/git.kitenet.net/>"
 		, "    Options Indexes ExecCGI FollowSymlinks"
 		, "    AllowOverride None"
 		, "    AddHandler cgi-script .cgi"
 		, "    DirectoryIndex index.cgi"
-		, Apache.allowAll
+		,      Apache.allowAll
 		, "  </Directory>"
 		, ""
 		, "  ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/"
@@ -296,63 +297,42 @@ annexWebSite origin hn uuid remotes = propertyList (hn ++" website using git-ann
 		, "git update-server-info"
 		]
 	addremote (name, url) = "git remote add " ++ shellEscape name ++ " " ++ shellEscape url
-	setupapache = apacheSite hn True
+	setupapache = Apache.httpsVirtualHost' hn dir letos
 		[ "  ServerAlias www."++hn
-		, ""
-		, "  DocumentRoot /srv/web/"++hn
-		, "  <Directory /srv/web/"++hn++">"
-		, "    Options FollowSymLinks"
-		, "    AllowOverride None"
-		, Apache.allowAll
-		, "  </Directory>"
-		, "  <Directory /srv/web/"++hn++">"
+		,    Apache.iconDir
+		, "  <Directory "++dir++">"
 		, "    Options Indexes FollowSymLinks ExecCGI"
 		, "    AllowOverride None"
 		, "    AddHandler cgi-script .cgi"
 		, "    DirectoryIndex index.html index.cgi"
-		, Apache.allowAll
+		,      Apache.allowAll
 		, "  </Directory>"
 		]
 
-apacheSite :: HostName -> Bool -> Apache.ConfigFile -> RevertableProperty DebianLike DebianLike
-apacheSite hn withssl middle = Apache.siteEnabled hn $ apachecfg hn withssl middle
+letos :: LetsEncrypt.AgreeTOS
+letos = LetsEncrypt.AgreeTOS (Just "id@joeyh.name")
 
-apachecfg :: HostName -> Bool -> Apache.ConfigFile -> Apache.ConfigFile
-apachecfg hn withssl middle
-	| withssl = vhost False ++ vhost True
-	| otherwise = vhost False
-  where
-	vhost ssl = 
-		[ "<VirtualHost *:"++show port++">"
-		, "  ServerAdmin grue@joeyh.name"
-		, "  ServerName "++hn++":"++show port
-		]
-		++ mainhttpscert ssl
-		++ middle ++
-		[ ""
-		, "  ErrorLog /var/log/apache2/error.log"
-		, "  LogLevel warn"
-		, "  CustomLog /var/log/apache2/access.log combined"
-		, "  ServerSignature On"
-		, "  "
-		, "  <Directory \"/usr/share/apache2/icons\">"
-		, "      Options Indexes MultiViews"
-		, "      AllowOverride None"
-		, Apache.allowAll
-		, "  </Directory>"
-		, "</VirtualHost>"
-		]
-	  where
-		port = if ssl then 443 else 80 :: Int
+apacheSite :: HostName -> Apache.ConfigFile -> RevertableProperty DebianLike DebianLike
+apacheSite hn middle = Apache.siteEnabled hn $ apachecfg hn middle
 
-mainhttpscert :: Bool -> Apache.ConfigFile
-mainhttpscert False = []
-mainhttpscert True = 
-	[ "  SSLEngine on"
-	, "  SSLCertificateFile /etc/ssl/certs/web.pem"
-	, "  SSLCertificateKeyFile /etc/ssl/private/web.pem"
-	, "  SSLCertificateChainFile /etc/ssl/certs/startssl.pem"
+apachecfg :: HostName -> Apache.ConfigFile -> Apache.ConfigFile
+apachecfg hn middle = 
+	[ "<VirtualHost *:"++show port++">"
+	, "  ServerAdmin grue@joeyh.name"
+	, "  ServerName "++hn++":"++show port
 	]
+	++ middle ++
+	[ ""
+	, "  ErrorLog /var/log/apache2/error.log"
+	, "  LogLevel warn"
+	, "  CustomLog /var/log/apache2/access.log combined"
+	, "  ServerSignature On"
+	, "  "
+	, Apache.iconDir
+	, "</VirtualHost>"
+	]
+	  where
+		port = 80 :: Int
 		
 gitAnnexDistributor :: Property (HasInfo + DebianLike)
 gitAnnexDistributor = combineProperties "git-annex distributor, including rsync server and signer" $ props
@@ -776,15 +756,6 @@ hasPostfixCert ctx = combineProperties "postfix tls cert installed" $ props
 	& "/etc/ssl/certs/postfix.pem" `File.hasPrivContentExposed` ctx
 	& "/etc/ssl/private/postfix.pem" `File.hasPrivContent` ctx
 
-kitenetHttps :: Property (HasInfo + DebianLike)
-kitenetHttps = propertyList "kitenet.net https certs" $ props
-	& File.hasPrivContent "/etc/ssl/certs/web.pem" ctx
-	& File.hasPrivContent "/etc/ssl/private/web.pem" ctx
-	& File.hasPrivContent "/etc/ssl/certs/startssl.pem" ctx
-	& Apache.modEnabled "ssl"
-  where
-	ctx = Context "kitenet.net"
-
 -- Legacy static web sites and redirections from kitenet.net to newer
 -- sites.
 legacyWebSites :: Property (HasInfo + DebianLike)
@@ -794,8 +765,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 	& Apache.modEnabled "cgi"
 	& Apache.modEnabled "speling"
 	& userDirHtml
-	& kitenetHttps
-	& apacheSite "kitenet.net" True
+	& Apache.httpsVirtualHost' "kitenet.net" "/var/www" letos
 		-- /var/www is empty
 		[ "DocumentRoot /var/www"
 		, "<Directory /var/www>"
@@ -883,7 +853,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 		, "rewriterule /~kyle/family/wiki(.*) http://macleawiki.branchable.com$1 [L]"
 		]
 	& alias "anna.kitenet.net"
-	& apacheSite "anna.kitenet.net" False
+	& apacheSite "anna.kitenet.net"
 		[ "DocumentRoot /home/anna/html"
 		, "<Directory /home/anna/html/>"
 		, "  Options Indexes ExecCGI"
@@ -893,7 +863,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 		]
 	& alias "sows-ear.kitenet.net"
 	& alias "www.sows-ear.kitenet.net"
-	& apacheSite "sows-ear.kitenet.net" False
+	& apacheSite "sows-ear.kitenet.net"
 		[ "ServerAlias www.sows-ear.kitenet.net"
 		, "DocumentRoot /srv/web/sows-ear.kitenet.net"
 		, "<Directory /srv/web/sows-ear.kitenet.net>"
@@ -906,7 +876,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 		]
 	& alias "wortroot.kitenet.net"
 	& alias "www.wortroot.kitenet.net"
-	& apacheSite "wortroot.kitenet.net" False
+	& apacheSite "wortroot.kitenet.net"
 		[ "ServerAlias www.wortroot.kitenet.net"
 		, "DocumentRoot /srv/web/wortroot.kitenet.net"
 		, "<Directory /srv/web/wortroot.kitenet.net>"
@@ -916,7 +886,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 		, "</Directory>"
 		]
 	& alias "creeksidepress.com"
-	& apacheSite "creeksidepress.com" False
+	& apacheSite "creeksidepress.com"
 		[ "ServerAlias www.creeksidepress.com"
 		, "DocumentRoot /srv/web/www.creeksidepress.com"
 		, "<Directory /srv/web/www.creeksidepress.com>"
@@ -926,7 +896,7 @@ legacyWebSites = propertyList "legacy web sites" $ props
 		, "</Directory>"
 		]
 	& alias "joey.kitenet.net"
-	& apacheSite "joey.kitenet.net" False
+	& apacheSite "joey.kitenet.net"
 		[ "DocumentRoot /var/www"
 		, "<Directory /var/www/>"
 		, "  Options Indexes ExecCGI"
