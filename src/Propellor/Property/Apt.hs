@@ -117,6 +117,7 @@ noninteractiveEnv =
 		, ("APT_LISTCHANGES_FRONTEND", "none")
 		]
 
+-- | Have apt update its lists of packages, but without upgrading anything.
 update :: Property DebianLike
 update = combineProperties ("apt update") $ props
 	& pendingConfigured
@@ -124,7 +125,7 @@ update = combineProperties ("apt update") $ props
 		`assume` MadeChange
 
 -- | Have apt upgrade packages, adding new packages and removing old as
--- necessary.
+-- necessary. Often used in combination with the `update` property.
 upgrade :: Property DebianLike
 upgrade = upgrade' "dist-upgrade"
 
@@ -248,15 +249,31 @@ unattendedUpgrades = enable <!> disable
 			| otherwise = "false"
 
 	configure :: Property DebianLike
-	configure = withOS "unattended upgrades configured" $ \w o ->
-		case o of
-			-- the package defaults to only upgrading stable
-			(Just (System (Debian suite) _))
-				| not (isStable suite) -> ensureProperty w $
-					"/etc/apt/apt.conf.d/50unattended-upgrades"
-						`File.containsLine`
-					("Unattended-Upgrade::Origins-Pattern { \"o=Debian,a="++showSuite suite++"\"; };")
-			_ -> noChange
+	configure = propertyList "unattended upgrades configured" $ props
+		& enableupgrading
+		& unattendedconfig `File.containsLine` "Unattended-Upgrade::Mail \"root\";"
+	  where
+		enableupgrading :: Property DebianLike
+		enableupgrading = withOS "unattended upgrades configured" $ \w o ->
+			case o of
+				-- the package defaults to only upgrading stable
+				(Just (System (Debian suite) _))
+					| not (isStable suite) -> ensureProperty w $
+						unattendedconfig
+							`File.containsLine`
+						("Unattended-Upgrade::Origins-Pattern { \"o=Debian,a="++showSuite suite++"\"; };")
+				_ -> noChange
+		unattendedconfig = "/etc/apt/apt.conf.d/50unattended-upgrades"
+
+-- | Enable periodic updates (but not upgrades), including download
+-- of packages.
+periodicUpdates :: Property DebianLike
+periodicUpdates = tightenTargets $ "/etc/apt/apt.conf.d/02periodic" `File.hasContent`
+	[ "APT::Periodic::Enable \"1\";"
+	, "APT::Periodic::Update-Package-Lists \"1\";"
+	, "APT::Periodic::Download-Upgradeable-Packages \"1\";"
+	, "APT::Periodic::Verbose \"1\";"
+	]
 
 type DebconfTemplate = String
 type DebconfTemplateType = String
@@ -265,8 +282,8 @@ type DebconfTemplateValue = String
 -- | Preseeds debconf values and reconfigures the package so it takes
 -- effect.
 reConfigure :: Package -> [(DebconfTemplate, DebconfTemplateType, DebconfTemplateValue)] -> Property DebianLike
-reConfigure package vals = tightenTargets $ 
-	reconfigure 
+reConfigure package vals = tightenTargets $
+	reconfigure
 		`requires` setselections
 		`describe` ("reconfigure " ++ package)
   where
