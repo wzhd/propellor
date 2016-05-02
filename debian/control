@@ -20,7 +20,7 @@ Build-Depends:
 	libghc-text-dev,
 	libghc-concurrent-output-dev,
 Maintainer: Sean Whitton <spwhitton@spwhitton.name>
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Homepage: https://propellor.branchable.com/
 Vcs-Git: https://git.spwhitton.name/propellor -b debian
 Vcs-Browser: https://git.spwhitton.name/?p=propellor.git;a=summary

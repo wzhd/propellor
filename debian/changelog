@@ -1,3 +1,10 @@
+propellor (3.0.3-1) UNRELEASED; urgency=medium
+
+  * Package new upstream release.
+  * Bump standards version to 3.9.8 (no changes required).
+
+ -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 01 May 2016 17:04:02 -0700
+
 propellor (3.0.3) unstable; urgency=medium
 
   * Remove Propellor.DotDir from the propellor library, as its use of
@@ -6,12 +13,6 @@ propellor (3.0.3) unstable; urgency=medium
     handles --init.
 
  -- Joey Hess <id@joeyh.name>  Sun, 01 May 2016 17:51:37 -0400
-
-propellor (3.0.2-1) UNRELEASED; urgency=medium
-
-  * Package new upstream version.
-
- -- Sean Whitton <spwhitton@spwhitton.name>  Sat, 30 Apr 2016 18:24:51 -0700
 
 propellor (3.0.2) unstable; urgency=medium
 
