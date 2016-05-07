@@ -10,6 +10,7 @@ propellor (3.0.3-2) UNRELEASED; urgency=medium
     - Add Lintian overrides duplicate-{short,long}-description.
     - Rename README.Debian, lintian-overrides to correspond to particular
       binary packages.
+    - Add libghc-propellor-{dev,prof,doc}.links duplicating propellor.links.
   * Binary package propellor now depends on libghc-propellor-dev.
     This fixes using propellor as a library, as set up by propellor --init
     option B.  Closes:
