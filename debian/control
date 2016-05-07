@@ -49,6 +49,7 @@ X-Description: property-based host configuration management in haskell
  `propellor' and run `propellor --init'.
 
 Package: libghc-propellor-dev
+Section: haskell
 Architecture: any
 Depends:
  ${haskell:Depends},
@@ -85,6 +86,7 @@ Description: ${haskell:ShortDescription}${haskell:ShortBlurb}
  ${haskell:Blurb}
 
 Package: libghc-propellor-prof
+Section: haskell
 Architecture: any
 Depends:
  ${haskell:Depends},
