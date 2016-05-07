@@ -44,6 +44,9 @@ X-Description: property-based host configuration management in haskell
  properties, taking action as necessary when a property is not yet met.
  .
  It is configured using haskell.
+ .
+ The easiest way to get started with propellor is to install the binary package
+ `propellor' and run `propellor --init'.
 
 Package: libghc-propellor-dev
 Architecture: any
