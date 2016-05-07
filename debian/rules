@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 # don't install CHANGELOG as it duplicates d/changelog
-DEB_INSTALL_CHANGELOGS_ALL=
+DEB_INSTALL_CHANGELOGS_ALL=-XCHANGELOG
 
 # Avoid using cabal, as it writes to $HOME
 export CABAL=./Setup
