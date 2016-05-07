@@ -1,6 +1,7 @@
 propellor (3.0.3-2) UNRELEASED; urgency=medium
 
-  * Use CDBS to build new binary packages libghc-propellor-{dev,prof,doc}.
+  * Use CDBS & haskell-devscripts to build new binary packages
+    libghc-propellor-{dev,prof,doc}.
     This fixes using propellor as a library, as set up by propellor --init
     option B.  Closes:
     https://propellor.branchable.com/todo/propellor_--init_option_B_failure/
