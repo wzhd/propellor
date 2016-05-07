@@ -1,8 +1,8 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: native package
+Source: https://propellor.branchable.com/
 
 Files: *
-Copyright: © 2010-2015 Joey Hess <id@joeyh.name> and contributors
+Copyright: © 2010-2016 Joey Hess <id@joeyh.name> and contributors
 License: BSD-2-clause
 
 License: BSD-2-clause
