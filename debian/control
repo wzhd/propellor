@@ -1,50 +1,127 @@
 Source: propellor
 Section: admin
 Priority: optional
-Build-Depends: 
-	debhelper (>= 9),
-	git,
-	ghc (>= 7.6),
-	cabal-install,
-	libghc-async-dev,
-	libghc-missingh-dev,
-	libghc-hslogger-dev,
-	libghc-unix-compat-dev,
-	libghc-ansi-terminal-dev,
-	libghc-ifelse-dev,
-	libghc-network-dev,
-	libghc-mtl-dev,
-	libghc-transformers-dev,
-	libghc-exceptions-dev (>= 0.6),
-	libghc-stm-dev,
-	libghc-text-dev,
-	libghc-concurrent-output-dev,
+Build-Depends:
+ cabal-install,
+ cdbs,
+ debhelper (>= 9),
+ ghc (>= 7.6),
+ git,
+ haskell-devscripts,
+ libghc-ansi-terminal-dev,
+ libghc-ansi-terminal-prof,
+ libghc-async-dev,
+ libghc-async-prof,
+ libghc-concurrent-output-dev,
+ libghc-concurrent-output-prof,
+ libghc-exceptions-dev (>= 0.6),
+ libghc-exceptions-prof (>= 0.6),
+ libghc-hslogger-dev,
+ libghc-hslogger-prof,
+ libghc-ifelse-dev,
+ libghc-ifelse-prof,
+ libghc-missingh-dev,
+ libghc-missingh-prof,
+ libghc-mtl-dev,
+ libghc-mtl-prof,
+ libghc-network-dev,
+ libghc-network-prof,
+ libghc-stm-dev,
+ libghc-stm-prof,
+ libghc-text-dev,
+ libghc-text-prof,
+ libghc-transformers-dev,
+ libghc-transformers-prof,
+ libghc-unix-compat-dev,
+ libghc-unix-compat-prof,
 Maintainer: Sean Whitton <spwhitton@spwhitton.name>
 Standards-Version: 3.9.8
 Homepage: https://propellor.branchable.com/
 Vcs-Git: https://git.spwhitton.name/propellor -b debian
 Vcs-Browser: https://git.spwhitton.name/?p=propellor.git;a=summary
+X-Description: property-based host configuration management in haskell
+ Propellor ensures that the system it's run in satisfies a list of
+ properties, taking action as necessary when a property is not yet met.
+ .
+ It is configured using haskell.
+
+Package: libghc-propellor-dev
+Architecture: any
+Depends:
+ ${haskell:Depends},
+ ${misc:Depends},
+ ${shlibs:Depends},
+Recommends:
+ ${haskell:Recommends},
+Suggests:
+ ${haskell:Suggests},
+Conflicts:
+ ${haskell:Conflicts},
+Provides:
+ ${haskell:Provides},
+Description: ${haskell:ShortDescription}${haskell:ShortBlurb}
+ ${haskell:LongDescription}
+ .
+ ${haskell:Blurb}
+
+Package: libghc-propellor-doc
+Architecture: all
+Section: doc
+Depends:
+ ${haskell:Depends},
+ ${misc:Depends},
+Recommends:
+ ${haskell:Recommends},
+Suggests:
+ ${haskell:Suggests},
+Conflicts:
+ ${haskell:Conflicts},
+Description: ${haskell:ShortDescription}${haskell:ShortBlurb}
+ ${haskell:LongDescription}
+ .
+ ${haskell:Blurb}
+
+Package: libghc-propellor-prof
+Architecture: any
+Depends:
+ ${haskell:Depends},
+ ${misc:Depends},
+Recommends:
+ ${haskell:Recommends},
+Suggests:
+ ${haskell:Suggests},
+Conflicts:
+ ${haskell:Conflicts},
+Provides:
+ ${haskell:Provides},
+Description: ${haskell:ShortDescription}${haskell:ShortBlurb}
+ ${haskell:LongDescription}
+ .
+ ${haskell:Blurb}
 
 Package: propellor
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends},
-	ghc (>= 7.4),
-	cabal-install,
-	libghc-async-dev,
-	libghc-missingh-dev,
-	libghc-hslogger-dev,
-	libghc-unix-compat-dev,
-	libghc-ansi-terminal-dev,
-	libghc-ifelse-dev,
-	libghc-network-dev,
-	libghc-mtl-dev,
-	libghc-transformers-dev,
-	libghc-exceptions-dev (>= 0.6),
-	libghc-stm-dev,
-	libghc-text-dev,
-	libghc-concurrent-output-dev,
-	git,
-	make,
+Depends:
+ cabal-install,
+ ghc (>= 7.4),
+ git,
+ libghc-ansi-terminal-dev,
+ libghc-async-dev,
+ libghc-concurrent-output-dev,
+ libghc-exceptions-dev (>= 0.6),
+ libghc-hslogger-dev,
+ libghc-ifelse-dev,
+ libghc-missingh-dev,
+ libghc-mtl-dev,
+ libghc-network-dev,
+ libghc-propellor-dev,
+ libghc-stm-dev,
+ libghc-text-dev,
+ libghc-transformers-dev,
+ libghc-unix-compat-dev,
+ make,
+ ${misc:Depends},
+ ${shlibs:Depends},
 Description: property-based host configuration management in haskell
  Propellor ensures that the system it's run in satisfies a list of
  properties, taking action as necessary when a property is not yet met.

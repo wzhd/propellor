@@ -1,5 +1,9 @@
 propellor (3.0.3-2) UNRELEASED; urgency=medium
 
+  * Use CDBS to build binary packages libghc-propellor-{dev,prof,doc}.
+    This fixes using propellor as a library, as set up by propellor --init
+    option B.
+  * Binary package propellor now depends on libghc-propellor-dev.
   * Update Source: and copyright year in debian/copyright.
   * Use debian/manpages and debian/docs instead of overrides in
     debian/rules.

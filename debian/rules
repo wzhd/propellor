@@ -1,12 +1,15 @@
 #!/usr/bin/make -f
 
+# don't install CHANGELOG as it duplicates d/changelog
+DEB_INSTALL_CHANGELOGS_ALL=
+
 # Avoid using cabal, as it writes to $HOME
 export CABAL=./Setup
 
-%:
-	dh $@
-
-override_dh_auto_build:
+build/propellor::
 	$(MAKE) build
-override_dh_installchangelogs:
-	dh_installchangelogs -XCHANGELOG
+install/propellor::
+	DESTDIR=$(CURDIR)/debian/propellor $(MAKE) install
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/hlibrary.mk
