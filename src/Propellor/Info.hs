@@ -10,6 +10,8 @@ module Propellor.Info (
 	pureInfoProperty',
 	askInfo,
 	getOS,
+	getBuild,
+	precompiled,
 	ipv4,
 	ipv6,
 	alias,
@@ -70,7 +72,7 @@ askInfo = asks (fromInfo . hostInfo)
 
 -- | Specifies that a host's operating system is Debian,
 -- and further indicates the suite and architecture.
--- 
+--
 -- This provides info for other Properties, so they can act
 -- conditionally on the details of the OS.
 --
@@ -100,6 +102,14 @@ os system = pureInfoProperty ("Operating " ++ show system) (InfoVal system)
 --  Gets the operating system of a host, if it has been specified.
 getOS :: Propellor (Maybe System)
 getOS = fromInfoVal <$> askInfo
+
+-- | Specifies that propellor should be precompiled before being sent and
+-- executed on the remote host
+getBuild :: Propellor (Maybe Build)
+getBuild = fromInfoVal <$> askInfo
+
+precompiled :: Property (HasInfo + UnixLike)
+precompiled = pureInfoProperty ("Set build state as precompiled") (InfoVal Precompiled)
 
 -- | Indicate that a host has an A record in the DNS.
 --

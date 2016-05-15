@@ -25,6 +25,7 @@ module Propellor.Types (
 	, Debian
 	, Buntish
 	, FreeBSD
+	, Build(..)
 	, HasInfo
 	, type (+)
 	, TightenTargets(..)
@@ -45,6 +46,7 @@ import Data.Monoid
 import Propellor.Types.Core
 import Propellor.Types.Info
 import Propellor.Types.OS
+import Propellor.Types.Build
 import Propellor.Types.Dns
 import Propellor.Types.Result
 import Propellor.Types.MetaTypes
@@ -56,7 +58,7 @@ import Propellor.Types.ZFS
 -- that have the property.
 --
 -- There are different types of properties that target different OS's,
--- and so have different metatypes. 
+-- and so have different metatypes.
 -- For example: "Property DebianLike" and "Property FreeBSD".
 --
 -- Also, some properties have associated `Info`, which is indicated in
@@ -184,7 +186,7 @@ class TightenTargets p where
 	-- > upgraded :: Property DebianLike
 	-- > upgraded = tightenTargets $ cmdProperty "apt-get" ["upgrade"]
 	tightenTargets
-		:: 
+		::
 			-- Note that this uses PolyKinds
 			( (Targets untightened `NotSuperset` Targets tightened) ~ 'CanCombine
 			, (NonTargets tightened `NotSuperset` NonTargets untightened) ~ 'CanCombine
