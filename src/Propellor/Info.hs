@@ -105,9 +105,6 @@ getOS = fromInfoVal <$> askInfo
 
 -- | Specifies that propellor should be precompiled before being sent and
 -- executed on the remote host
-getBuild :: Propellor (Maybe Build)
-getBuild = fromInfoVal <$> askInfo
-
 precompiled :: Property (HasInfo + UnixLike)
 precompiled = pureInfoProperty ("Set build state as precompiled") (InfoVal Precompiled)
 
