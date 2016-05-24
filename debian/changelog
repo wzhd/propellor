@@ -1,8 +1,8 @@
-propellor (3.0.4-1) UNRELEASED; urgency=medium
+propellor (3.0.4-1) unstable; urgency=medium
 
   * Package new upstream release.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Tue, 24 May 2016 15:11:05 +0900
+ -- Sean Whitton <spwhitton@spwhitton.name>  Tue, 24 May 2016 15:34:24 +0900
 
 propellor (3.0.4) unstable; urgency=medium
 
