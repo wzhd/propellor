@@ -10,7 +10,6 @@ module Propellor.Info (
 	pureInfoProperty',
 	askInfo,
 	getOS,
-	getBuild,
 	precompiled,
 	ipv4,
 	ipv6,
