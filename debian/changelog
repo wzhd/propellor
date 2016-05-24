@@ -2,7 +2,7 @@ propellor (3.0.4-1) UNRELEASED; urgency=medium
 
   * Package new upstream release.
 
- -- Sean Whitton <swhitton@artemis.silentflame.com>  Tue, 24 May 2016 15:11:05 +0900
+ -- Sean Whitton <spwhitton@spwhitton.name>  Tue, 24 May 2016 15:11:05 +0900
 
 propellor (3.0.4) unstable; urgency=medium
 
