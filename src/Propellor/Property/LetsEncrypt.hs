@@ -1,4 +1,5 @@
--- | This module uses the letsencrypt reference client.
+-- | This module gets LetsEncrypt <https://letsencrypt.org/> certificates 
+-- using CertBot <https://certbot.eff.org/>
 
 module Propellor.Property.LetsEncrypt where
 
@@ -7,6 +8,8 @@ import qualified Propellor.Property.Apt as Apt
 
 import System.Posix.Files
 
+-- Not using the certbot name yet, until it reaches jessie-backports and
+-- testing.
 installed :: Property DebianLike
 installed = Apt.installed ["letsencrypt"]
 
@@ -74,6 +77,7 @@ letsEncrypt' (AgreeTOS memail) domain domains webroot =
 		, "--webroot"
 		, "--webroot-path", webroot
 		, "--text"
+		, "--noninteractive"
 		, "--keep-until-expiring"
 		] ++ map (\d -> "--domain="++d) alldomains
 
