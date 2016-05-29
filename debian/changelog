@@ -1,5 +1,18 @@
-propellor (3.0.5) UNRELEASED; urgency=medium
+propellor (3.1.0) UNRELEASED; urgency=medium
 
+  * Architecture changed from String to an ADT. (API Change)
+    Transition guide: Change "amd64" to X86_64, "i386" to X86_32,
+    "armel" to ARMEL, etc.
+    Thanks, Félix Sipma.
+  * The Debian data type now includes a DebianKernel. (API Change)
+    This won't affect most config.hs, as osDebian defaults to
+    Linux. Added osDebian' can be used to specify a different kernel.
+    Thanks, Félix Sipma.
+  * Propellor.Precompiled: New module that can be used to specify
+    that propellor should be precompiled before being sent to a Host.
+    This allows using propellor on a Host without needing to install
+    ghc on it.
+    Thanks, Félix Sipma.
   * Modules added for Sbuild and Ccache.
     Thanks, Sean Whitton
 
