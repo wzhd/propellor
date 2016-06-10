@@ -1,5 +1,5 @@
 Name: propellor
-Version: 3.0.4
+Version: 3.0.5
 Cabal-Version: >= 1.8
 License: BSD2
 Maintainer: Joey Hess <id@joeyh.name>
@@ -82,6 +82,7 @@ Library
     Propellor.Property.Apt.PPA
     Propellor.Property.Attic
     Propellor.Property.Borg
+    Propellor.Property.Ccache
     Propellor.Property.Cmd
     Propellor.Property.Concurrent
     Propellor.Property.Conductor
@@ -127,7 +128,9 @@ Library
     Propellor.Property.Prosody
     Propellor.Property.Reboot
     Propellor.Property.Rsync
+    Propellor.Property.Sbuild
     Propellor.Property.Scheduled
+    Propellor.Property.Schroot
     Propellor.Property.Service
     Propellor.Property.Ssh
     Propellor.Property.Sudo
