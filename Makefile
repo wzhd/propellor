@@ -1,23 +1,14 @@
 CABAL?=cabal
+DATE := $(shell dpkg-parsechangelog 2>/dev/null | grep Date | cut -d " " -f2-)
 
-DEBDEPS=gnupg ghc cabal-install libghc-missingh-dev libghc-ansi-terminal-dev libghc-ifelse-dev libghc-unix-compat-dev libghc-hslogger-dev libghc-network-dev libghc-quickcheck2-dev libghc-mtl-dev libghc-monadcatchio-transformers-dev
-
-run: deps build
+# this target is provided (and is first) to keep old versions of the
+# propellor cron job working, and will eventually be removed
+run: build
 	./propellor
 
-dev: build tags
-
-build: dist/setup-config
-	if ! $(CABAL) build; then $(CABAL) configure; $(CABAL) build; fi
+build: tags propellor.1 dist/setup-config
+	$(CABAL) build
 	ln -sf dist/build/propellor-config/propellor-config propellor
-
-deps:
-	@if [ $$(whoami) = root ]; then apt-get --no-upgrade --no-install-recommends -y install $(DEBDEPS) || (apt-get update && apt-get --no-upgrade --no-install-recommends -y install $(DEBDEPS)); fi || true
-	@if [ $$(whoami) = root ]; then apt-get --no-upgrade --no-install-recommends -y install libghc-async-dev || (cabal update; cabal install async); fi || true
-
-dist/setup-config: propellor.cabal
-	if [ "$(CABAL)" = ./Setup ]; then ghc --make Setup; fi
-	$(CABAL) configure
 
 install:
 	install -d $(DESTDIR)/usr/bin $(DESTDIR)/usr/src/propellor
@@ -27,15 +18,23 @@ install:
 	cat dist/propellor-*.tar.gz | (cd dist/gittmp && tar zx --strip-components=1)
 	# cabal sdist does not preserve symlinks, so copy over file
 	cd dist/gittmp && for f in $$(find -type f); do rm -f $$f; cp -a ../../$$f $$f; done
-	cd dist/gittmp && git init && \
-		git add . \
-		&& git commit -q -m "distributed version of propellor" \
-		&& git bundle create $(DESTDIR)/usr/src/propellor/propellor.git master HEAD \
-		&& git show-ref master --hash > $(DESTDIR)/usr/src/propellor/head
+	# reset mtime on files in git bundle so bundle is reproducible
+	find dist/gittmp -print0 | xargs -0r touch --no-dereference --date="$(DATE)"
+	export GIT_AUTHOR_NAME=build \
+	&& export GIT_AUTHOR_EMAIL=build@buildhost \
+	&& export GIT_AUTHOR_DATE="$(DATE)" \
+	&& export GIT_COMMITTER_NAME=build \
+	&& export GIT_COMMITTER_EMAIL=build@buildhost \
+	&& export GIT_COMMITTER_DATE="$(DATE)" \
+	&& cd dist/gittmp && git init \
+	&& git add . \
+	&& git commit -q -m "distributed version of propellor" \
+	&& git bundle create $(DESTDIR)/usr/src/propellor/propellor.git master HEAD \
+	&& git show-ref master --hash > $(DESTDIR)/usr/src/propellor/head
 	rm -rf dist/gittmp
 
 clean:
-	rm -rf dist Setup tags propellor privdata/local
+	rm -rf dist Setup tags propellor propellor.1 privdata/local
 	find -name \*.o -exec rm {} \;
 	find -name \*.hi -exec rm {} \;
 
@@ -43,7 +42,14 @@ clean:
 # duplicate tags with Propellor.Property. removed from the start, as we
 # often import qualified by just the module base name.
 tags:
-	find . | grep -v /.git/ | grep -v /tmp/ | grep -v /dist/ | grep -v /doc/ | egrep '\.hs$$' | xargs hothasktags | perl -ne 'print; s/Propellor\.Property\.//; print' | sort > tags  2>/dev/null
+	find . | grep -v /.git/ | grep -v /tmp/ | grep -v /dist/ | grep -v /doc/ | egrep '\.hs$$' | xargs hothasktags 2>/dev/null | perl -ne 'print; s/Propellor\.Property\.//; print' | sort > tags || true
+
+dist/setup-config: propellor.cabal
+	@if [ "$(CABAL)" = ./Setup ]; then ghc --make Setup; fi
+	@$(CABAL) configure
+
+propellor.1: doc/usage.mdwn doc/mdwn2man
+	doc/mdwn2man propellor 1 < doc/usage.mdwn > propellor.1
 
 # Upload to hackage.
 hackage:

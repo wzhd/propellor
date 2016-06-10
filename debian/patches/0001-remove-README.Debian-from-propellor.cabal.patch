@@ -1,0 +1,23 @@
+From: Sean Whitton <spwhitton@spwhitton.name>
+Date: Sat, 7 May 2016 08:47:15 -0700
+Subject: remove README.Debian from propellor.cabal
+Forwarded: not-needed
+
+README.Debian has been renamed propellor.README.Debian to avoid its installation
+in /usr/share/doc/libghc-propellor-dev.
+---
+ propellor.cabal | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/propellor.cabal b/propellor.cabal
+index e931e3d..6cb5a4c 100644
+--- a/propellor.cabal
++++ b/propellor.cabal
+@@ -22,7 +22,6 @@ Extra-Source-Files:
+   contrib/post-merge-hook
+   stack.yaml
+   debian/changelog
+-  debian/README.Debian
+   debian/compat
+   debian/control
+   debian/copyright

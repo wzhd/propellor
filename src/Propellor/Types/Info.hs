@@ -1,70 +1,92 @@
-module Propellor.Types.Info where
+{-# LANGUAGE GADTs, DeriveDataTypeable, GeneralizedNewtypeDeriving #-}
 
-import Propellor.Types.OS
-import Propellor.Types.PrivData
-import qualified Propellor.Types.Dns as Dns
+module Propellor.Types.Info (
+	Info,
+	IsInfo(..),
+	addInfo,
+	toInfo,
+	fromInfo,
+	mapInfo,
+	propagatableInfo,
+	InfoVal(..),
+	fromInfoVal,
+	Typeable,
+) where
 
-import qualified Data.Set as S
+import Data.Dynamic
+import Data.Maybe
 import Data.Monoid
+import Prelude
 
--- | Information about a host.
-data Info = Info
-	{ _os :: Val System
-	, _privDataFields :: S.Set (PrivDataField, Context)
-	, _sshPubKey :: Val String
-	, _aliases :: S.Set HostName
-	, _dns :: S.Set Dns.Record
-	, _namedconf :: Dns.NamedConfMap
-	, _dockerinfo :: DockerInfo
-	}
-	deriving (Eq, Show)
+-- | Information about a Host, which can be provided by its properties.
+--
+-- Many different types of data can be contained in the same Info value
+-- at the same time. See `toInfo` and `fromInfo`.
+newtype Info = Info [InfoEntry]
+	deriving (Monoid, Show)
 
-instance Monoid Info where
-	mempty = Info mempty mempty mempty mempty mempty mempty mempty
-	mappend old new = Info
-		{ _os = _os old <> _os new
-		, _privDataFields = _privDataFields old <> _privDataFields new
-		, _sshPubKey = _sshPubKey old <> _sshPubKey new
-		, _aliases = _aliases old <> _aliases new
-		, _dns = _dns old <> _dns new
-		, _namedconf = _namedconf old <> _namedconf new
-		, _dockerinfo = _dockerinfo old <> _dockerinfo new
-		}
+data InfoEntry where
+	InfoEntry :: (IsInfo v, Typeable v) => v -> InfoEntry
 
-data Val a = Val a | NoVal
-	deriving (Eq, Show)
+instance Show InfoEntry where
+	show (InfoEntry v) = show v
 
-instance Monoid (Val a) where
-	mempty = NoVal
-	mappend old new = case new of
-		NoVal -> old
-		_ -> new
+-- Extracts the value from an InfoEntry but only when
+-- it's of the requested type.
+extractInfoEntry :: Typeable v => InfoEntry -> Maybe v
+extractInfoEntry (InfoEntry v) = cast v
 
-fromVal :: Val a -> Maybe a
-fromVal (Val a) = Just a
-fromVal NoVal = Nothing
+-- | Values stored in Info must be members of this class.
+--
+-- This is used to avoid accidentially using other data types
+-- as info, especially type aliases which coud easily lead to bugs.
+-- We want a little bit of dynamic types here, but not too far..
+class (Typeable v, Monoid v, Show v) => IsInfo v where
+	-- | Should info of this type be propagated out of a
+	-- container to its Host?
+	propagateInfo :: v -> Bool
 
-data DockerInfo = DockerInfo
-	{ _dockerImage :: Val String
-	, _dockerRunParams :: [HostName -> String]
-	}
+-- | Any value in the `IsInfo` type class can be added to an Info.
+addInfo :: IsInfo v => Info -> v -> Info
+addInfo (Info l) v = Info (InfoEntry v:l)
 
-instance Eq DockerInfo where
-	x == y = and
-		[ _dockerImage x == _dockerImage y
-		, let simpl v = map (\a -> a "") (_dockerRunParams v)
-		  in simpl x == simpl y
-		]
+-- | Converts any value in the `IsInfo` type class into an Info,
+-- which is otherwise empty.
+toInfo :: IsInfo v => v -> Info
+toInfo = addInfo mempty
 
-instance Monoid DockerInfo where
-	mempty = DockerInfo mempty mempty
-	mappend old new = DockerInfo
-		{ _dockerImage = _dockerImage old <> _dockerImage new
-		, _dockerRunParams = _dockerRunParams old <> _dockerRunParams new
-		}
+-- The list is reversed here because addInfo builds it up in reverse order.
+fromInfo :: IsInfo v => Info -> v
+fromInfo (Info l) = mconcat (mapMaybe extractInfoEntry (reverse l))
 
-instance Show DockerInfo where
-	show a = unlines
-		[ "docker image " ++ show (_dockerImage a)
-		, "docker run params " ++ show (map (\mk -> mk "") (_dockerRunParams a))
-		]
+-- | Maps a function over all values stored in the Info that are of the
+-- appropriate type.
+mapInfo :: IsInfo v => (v -> v) -> Info -> Info
+mapInfo f (Info l) = Info (map go l)
+  where
+	go i = case extractInfoEntry i of
+		Nothing -> i
+		Just v -> InfoEntry (f v)
+
+-- | Filters out parts of the Info that should not propagate out of a
+-- container.
+propagatableInfo :: Info -> Info
+propagatableInfo (Info l) = Info (filter (\(InfoEntry a) -> propagateInfo a) l)
+
+-- | Use this to put a value in Info that is not a monoid.
+-- The last value set will be used. This info does not propagate
+-- out of a container.
+data InfoVal v = NoInfoVal | InfoVal v
+	deriving (Typeable, Show)
+
+instance Monoid (InfoVal v) where
+	mempty = NoInfoVal
+	mappend _ v@(InfoVal _) = v
+	mappend v NoInfoVal = v
+
+instance (Typeable v, Show v) => IsInfo (InfoVal v) where
+	propagateInfo _ = False
+
+fromInfoVal :: InfoVal v -> Maybe v
+fromInfoVal NoInfoVal = Nothing
+fromInfoVal (InfoVal v) = Just v

@@ -1,0 +1,6 @@
+binary-or-shlib-defines-rpath
+hardening-no-relro
+# the binary package names make the distinctions clear
+duplicate-long-description
+# the binary package names make the distinctions clear
+duplicate-short-description

@@ -1,58 +1,80 @@
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PolyKinds #-}
 
-module Propellor.Property where
+module Propellor.Property (
+	-- * Property combinators
+	  requires
+	, before
+	, onChange
+	, onChangeFlagOnFail
+	, flagFile
+	, flagFile'
+	, check
+	, fallback
+	, revert
+	-- * Property descriptions
+	, describe
+	, (==>)
+	-- * Constructing properties
+	, Propellor
+	, property
+	, property'
+	, OuterMetaTypesWitness
+	, ensureProperty
+	, pickOS
+	, withOS
+	, unsupportedOS
+	, unsupportedOS'
+	, makeChange
+	, noChange
+	, doNothing
+	, endAction
+	-- * Property result checking
+	, UncheckedProperty
+	, unchecked
+	, changesFile
+	, changesFileContent
+	, isNewerThan
+	, checkResult
+	, Checkable
+	, assume
+) where
 
-import System.Directory
+import System.FilePath
 import Control.Monad
 import Data.Monoid
 import Control.Monad.IfElse
-import "mtl" Control.Monad.Reader
+import "mtl" Control.Monad.RWS.Strict
+import System.Posix.Files
+import qualified Data.Hash.MD5 as MD5
+import Data.List
+import Control.Applicative
+import Prelude
 
 import Propellor.Types
+import Propellor.Types.Core
+import Propellor.Types.ResultCheck
+import Propellor.Types.MetaTypes
+import Propellor.Types.Singletons
 import Propellor.Info
-import Propellor.Engine
+import Propellor.EnsureProperty
+import Utility.Exception
 import Utility.Monad
-import System.FilePath
-
--- Constructs a Property.
-property :: Desc -> Propellor Result -> Property
-property d s = Property d s mempty
-
--- | Combines a list of properties, resulting in a single property
--- that when run will run each property in the list in turn,
--- and print out the description of each as it's run. Does not stop
--- on failure; does propigate overall success/failure.
-propertyList :: Desc -> [Property] -> Property
-propertyList desc ps = Property desc (ensureProperties ps) (combineInfos ps)
-
--- | Combines a list of properties, resulting in one property that
--- ensures each in turn. Does not stop on failure; does propigate
--- overall success/failure.
-combineProperties :: Desc -> [Property] -> Property
-combineProperties desc ps = Property desc (go ps NoChange) (combineInfos ps)
-  where
-	go [] rs = return rs
-	go (l:ls) rs = do
-		r <- ensureProperty l
-		case r of
-			FailedChange -> return FailedChange
-			_ -> go ls (r <> rs)
-
--- | Combines together two properties, resulting in one property
--- that ensures the first, and if the first succeeds, ensures the second.
--- The property uses the description of the first property.
-before :: Property -> Property -> Property
-p1 `before` p2 = p2 `requires` p1
-	`describe` (propertyDesc p1)
+import Utility.Misc
+import Utility.Directory
 
 -- | Makes a perhaps non-idempotent Property be idempotent by using a flag
 -- file to indicate whether it has run before.
 -- Use with caution.
-flagFile :: Property -> FilePath -> Property
+flagFile :: Property i -> FilePath -> Property i
 flagFile p = flagFile' p . return
 
-flagFile' :: Property -> IO FilePath -> Property
-flagFile' p getflagfile = adjustProperty p $ \satisfy -> do
+flagFile' :: Property i -> IO FilePath -> Property i
+flagFile' p getflagfile = adjustPropertySatisfy p $ \satisfy -> do
 	flagfile <- liftIO getflagfile
 	go satisfy flagfile =<< liftIO (doesFileExist flagfile)
   where
@@ -65,107 +87,270 @@ flagFile' p getflagfile = adjustProperty p $ \satisfy -> do
 				writeFile flagfile ""
 		return r
 
---- | Whenever a change has to be made for a Property, causes a hook
+-- | Indicates that the first property depends on the second,
+-- so before the first is ensured, the second must be ensured.
+--
+-- The combined property uses the description of the first property.
+requires :: Combines x y => x -> y -> CombinedType x y
+requires = combineWith
+	-- Run action of y, then x
+	(flip (<>))
+	-- When reverting, run in reverse order.
+	(<>)
+
+-- | Combines together two properties, resulting in one property
+-- that ensures the first, and if the first succeeds, ensures the second.
+--
+-- The combined property uses the description of the first property.
+before :: Combines x y => x -> y -> CombinedType x y
+before = combineWith
+	-- Run action of x, then y
+	(<>)
+	-- When reverting, run in reverse order.
+	(flip (<>))
+
+-- | Whenever a change has to be made for a Property, causes a hook
 -- Property to also be run, but not otherwise.
-onChange :: Property -> Property -> Property
-p `onChange` hook = Property (propertyDesc p) satisfy (combineInfo p hook)
+onChange
+	:: (Combines x y)
+	=> x
+        -> y
+        -> CombinedType x y
+onChange = combineWith combiner revertcombiner
   where
-	satisfy = do
-		r <- ensureProperty p
+	combiner p hook = do
+		r <- p
 		case r of
 			MadeChange -> do
-				r' <- ensureProperty hook
+				r' <- hook
 				return $ r <> r'
 			_ -> return r
+	revertcombiner = (<>)
 
-(==>) :: Desc -> Property -> Property
+-- | Same as `onChange` except that if property y fails, a flag file
+-- is generated. On next run, if the flag file is present, property y
+-- is executed even if property x doesn't change.
+--
+-- With `onChange`, if y fails, the property x `onChange` y returns
+-- `FailedChange`. But if this property is applied again, it returns
+-- `NoChange`. This behavior can cause trouble...
+onChangeFlagOnFail
+	:: (Combines x y)
+	=> FilePath
+        -> x
+        -> y
+        -> CombinedType x y
+onChangeFlagOnFail flagfile = combineWith combiner revertcombiner
+  where
+	combiner s1 s2 = do
+		r1 <- s1
+		case r1 of
+			MadeChange -> flagFailed s2
+			_ -> ifM (liftIO $ doesFileExist flagfile)
+				(flagFailed s2
+				, return r1
+				)
+	revertcombiner = (<>)
+	flagFailed s = do
+		r <- s
+		liftIO $ case r of
+			FailedChange -> createFlagFile
+			_ -> removeFlagFile
+		return r
+	createFlagFile = unlessM (doesFileExist flagfile) $ do
+		createDirectoryIfMissing True (takeDirectory flagfile)
+		writeFile flagfile ""
+	removeFlagFile = whenM (doesFileExist flagfile) $ removeFile flagfile
+
+-- | Changes the description of a property.
+describe :: IsProp p => p -> Desc -> p
+describe = setDesc
+
+-- | Alias for @flip describe@
+(==>) :: IsProp (Property i) => Desc -> Property i -> Property i
 (==>) = flip describe
 infixl 1 ==>
 
--- | Makes a Property only need to do anything when a test succeeds.
-check :: IO Bool -> Property -> Property
-check c p = adjustProperty p $ \satisfy -> ifM (liftIO c)
-	( satisfy
-	, return NoChange
-	)
+-- | Tries the first property, but if it fails to work, instead uses
+-- the second.
+fallback :: (Combines p1 p2) => p1 -> p2 -> CombinedType p1 p2
+fallback = combineWith combiner revertcombiner
+  where
+	combiner a1 a2 = do
+		r <- a1
+		if r == FailedChange
+			then a2
+			else return r
+	revertcombiner = (<>)
 
--- | Marks a Property as trivial. It can only return FailedChange or
--- NoChange. 
+-- | Indicates that a Property may change a particular file. When the file
+-- is modified in any way (including changing its permissions or mtime),
+-- the property will return MadeChange instead of NoChange.
+changesFile :: Checkable p i => p i -> FilePath -> Property i
+changesFile p f = checkResult getstat comparestat p
+  where
+	getstat = catchMaybeIO $ getSymbolicLinkStatus f
+	comparestat oldstat = do
+		newstat <- getstat
+		return $ if samestat oldstat newstat then NoChange else MadeChange
+	samestat Nothing Nothing = True
+	samestat (Just a) (Just b) = and
+		-- everything except for atime
+		[ deviceID a == deviceID b
+		, fileID a == fileID b
+		, fileMode a == fileMode b
+		, fileOwner a == fileOwner b
+		, fileGroup a == fileGroup b
+		, specialDeviceID a == specialDeviceID b
+		, fileSize a == fileSize b
+		, modificationTimeHiRes a == modificationTimeHiRes b
+		, isBlockDevice a == isBlockDevice b
+		, isCharacterDevice a == isCharacterDevice b
+		, isNamedPipe a == isNamedPipe b
+		, isRegularFile a == isRegularFile b
+		, isDirectory a == isDirectory b
+		, isSymbolicLink a == isSymbolicLink b
+		, isSocket a == isSocket b
+		]
+	samestat _ _ = False
+
+-- | Like `changesFile`, but compares the content of the file.
+-- Changes to mtime etc that do not change file content are treated as
+-- NoChange.
+changesFileContent :: Checkable p i => p i -> FilePath -> Property i
+changesFileContent p f = checkResult getmd5 comparemd5 p
+  where
+	getmd5 = catchMaybeIO $ MD5.md5 . MD5.Str <$> readFileStrictAnyEncoding f
+	comparemd5 oldmd5 = do
+		newmd5 <- getmd5
+		return $ if oldmd5 == newmd5 then NoChange else MadeChange
+
+-- | Determines if the first file is newer than the second file.
 --
--- Useful when it's just as expensive to check if a change needs
--- to be made as it is to just idempotently assure the property is
--- satisfied. For example, chmodding a file.
-trivial :: Property -> Property
-trivial p = adjustProperty p $ \satisfy -> do
-	r <- satisfy
-	if r == MadeChange
-		then return NoChange
-		else return r
-
-doNothing :: Property
-doNothing = property "noop property" noChange
-
--- | Makes a property that is satisfied differently depending on the host's
--- operating system. 
+-- This can be used with `check` to only run a command when a file
+-- has changed.
 --
--- Note that the operating system may not be declared for some hosts.
-withOS :: Desc -> (Maybe System -> Propellor Result) -> Property
-withOS desc a = property desc $ a =<< getOS
+-- > check ("/etc/aliases" `isNewerThan` "/etc/aliases.db")
+-- > 	(cmdProperty "newaliases" [] `assume` MadeChange) -- updates aliases.db
+--
+-- Or it can be used with `checkResult` to test if a command made a change.
+--
+-- > checkResult (return ())
+-- > 	(\_ -> "/etc/aliases.db" `isNewerThan` "/etc/aliases")
+-- > 	(cmdProperty "newaliases" [])
+--
+-- (If one of the files does not exist, the file that does exist is
+-- considered to be the newer of the two.)
+isNewerThan :: FilePath -> FilePath -> IO Bool
+isNewerThan x y = do
+	mx <- mtime x
+	my <- mtime y
+	return (mx > my)
+  where
+	mtime f = catchMaybeIO $ modificationTimeHiRes <$> getFileStatus f
 
-boolProperty :: Desc -> IO Bool -> Property
-boolProperty desc a = property desc $ ifM (liftIO a)
-	( return MadeChange
-	, return FailedChange
-	)
+-- | Picks one of the two input properties to use,
+-- depending on the targeted OS.
+--
+-- If both input properties support the targeted OS, then the
+-- first will be used.
+--
+-- The resulting property will use the description of the first property
+-- no matter which property is used in the end. So, it's often a good
+-- idea to change the description to something clearer.
+--
+-- For example:
+--
+-- > upgraded :: UnixLike
+-- > upgraded = (Apt.upgraded `pickOS` Pkg.upgraded)
+-- > 	`describe` "OS upgraded"
+--
+-- If neither input property supports the targeted OS, calls
+-- `unsupportedOS`. Using the example above on a Fedora system would
+-- fail that way.
+pickOS
+	::
+		( SingKind ('KProxy :: KProxy ka)
+		, SingKind ('KProxy :: KProxy kb)
+		, DemoteRep ('KProxy :: KProxy ka) ~ [MetaType]
+		, DemoteRep ('KProxy :: KProxy kb) ~ [MetaType]
+		, SingI c
+		-- Would be nice to have this constraint, but
+		-- union will not generate metatypes lists with the same
+		-- order of OS's as is used everywhere else. So, 
+		-- would need a type-level sort.
+		--, Union a b ~ c
+		)
+	=> Property (MetaTypes (a :: ka))
+	-> Property (MetaTypes (b :: kb))
+	-> Property (MetaTypes c)
+pickOS a b = c `addChildren` [toChildProperty a, toChildProperty b]
+  where
+	-- This use of getSatisfy is safe, because both a and b
+	-- are added as children, so their info will propigate.
+	c = withOS (getDesc a) $ \_ o ->
+		if matching o a
+			then getSatisfy a
+			else if matching o b
+				then getSatisfy b
+				else unsupportedOS'
+	matching Nothing _ = False
+	matching (Just o) p = 
+		Targeting (systemToTargetOS o)
+			`elem`
+		fromSing (proptype p)
+	proptype (Property t _ _ _ _) = t
 
--- | Undoes the effect of a property.
-revert :: RevertableProperty -> RevertableProperty
+-- | Makes a property that is satisfied differently depending on specifics
+-- of the host's operating system.
+--
+-- > myproperty :: Property Debian
+-- > myproperty = withOS "foo installed" $ \w o -> case o of
+-- > 	(Just (System (Debian (Stable release)) arch)) -> ensureProperty w ...
+-- > 	(Just (System (Debian suite) arch)) -> ensureProperty w ...
+-- >	_ -> unsupportedOS'
+--
+-- Note that the operating system specifics may not be declared for all hosts,
+-- which is where Nothing comes in.
+withOS
+	:: (SingI metatypes)
+	=> Desc
+	-> (OuterMetaTypesWitness '[] -> Maybe System -> Propellor Result)
+	-> Property (MetaTypes metatypes)
+withOS desc a = property desc $ a dummyoutermetatypes =<< getOS
+  where
+	-- Using this dummy value allows ensureProperty to be used
+	-- even though the inner property probably doesn't target everything
+	-- that the outer withOS property targets.
+	dummyoutermetatypes :: OuterMetaTypesWitness ('[])
+	dummyoutermetatypes = OuterMetaTypesWitness sing
+
+-- | A property that always fails with an unsupported OS error.
+unsupportedOS :: Property UnixLike
+unsupportedOS = property "unsupportedOS" unsupportedOS'
+
+-- | Throws an error, for use in `withOS` when a property is lacking
+-- support for an OS.
+unsupportedOS' :: Propellor Result
+unsupportedOS' = go =<< getOS
+	  where
+		go Nothing = error "Unknown host OS is not supported by this property."
+		go (Just o) = error $ "This property is not implemented for " ++ show o
+
+-- | Undoes the effect of a RevertableProperty.
+revert :: RevertableProperty setup undo -> RevertableProperty undo setup
 revert (RevertableProperty p1 p2) = RevertableProperty p2 p1
-
--- | Starts accumulating the properties of a Host.
---
--- > host "example.com"
--- > 	& someproperty
--- > 	! oldproperty
--- > 	& otherproperty
-host :: HostName -> Host
-host hn = Host hn [] mempty
-
--- | Adds a property to a Host
---
--- Can add Properties and RevertableProperties
-(&) :: IsProp p => Host -> p -> Host
-(Host hn ps is) & p = Host hn (ps ++ [toProp p]) (is <> getInfo p)
-
-infixl 1 &
-
--- | Adds a property to the Host in reverted form.
-(!) :: Host -> RevertableProperty -> Host
-h ! p = h & revert p
-
-infixl 1 !
-
--- | Like (&), but adds the property as the first property of the host.
--- Normally, property order should not matter, but this is useful
--- when it does.
-(&^) :: IsProp p => Host -> p -> Host
-(Host hn ps is) &^ p = Host hn ([toProp p] ++ ps) (getInfo p <> is)
-
-infixl 1 &^
-
--- Changes the action that is performed to satisfy a property. 
-adjustProperty :: Property -> (Propellor Result -> Propellor Result) -> Property
-adjustProperty p f = p { propertySatisfy = f (propertySatisfy p) }
-
--- Combines the Info of two properties.
-combineInfo :: (IsProp p, IsProp q) => p -> q -> Info
-combineInfo p q = getInfo p <> getInfo q
-
-combineInfos :: IsProp p => [p] -> Info
-combineInfos = mconcat . map getInfo
 
 makeChange :: IO () -> Propellor Result
 makeChange a = liftIO a >> return MadeChange
 
 noChange :: Propellor Result
 noChange = return NoChange
+
+doNothing :: SingI t => Property (MetaTypes t)
+doNothing = property "noop property" noChange
+
+-- | Registers an action that should be run at the very end, after
+-- propellor has checks all the properties of a host.
+endAction :: Desc -> (Result -> Propellor Result) -> Propellor ()
+endAction desc a = tell [EndAction desc a]

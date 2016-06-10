@@ -1,25 +1,27 @@
 module Propellor.Property.SiteSpecific.GitHome where
 
-import Propellor
+import Propellor.Base
 import qualified Propellor.Property.Apt as Apt
 import Propellor.Property.User
-import Utility.SafeCommand
 
 -- | Clones Joey Hess's git home directory, and runs its fixups script.
-installedFor :: UserName -> Property
-installedFor user = check (not <$> hasGitDir user) $ 
-	property ("githome " ++ user) (go =<< liftIO (homedir user))
-		`requires` Apt.installed ["git"]
+installedFor :: User -> Property DebianLike
+installedFor user@(User u) = check (not <$> hasGitDir user) $ 
+	go `requires` Apt.installed ["git"]
   where
-	go home = do
+	go :: Property DebianLike
+	go = property' ("githome " ++ u) $ \w -> do
+		home <- liftIO (homedir user)
 		let tmpdir = home </> "githome"
-		ensureProperty $ combineProperties "githome setup"
+		ensureProperty w $ combineProperties "githome setup" $ toProps
 			[ userScriptProperty user ["git clone " ++ url ++ " " ++ tmpdir]
+				`assume` MadeChange
 			, property "moveout" $ makeChange $ void $
 				moveout tmpdir home
 			, property "rmdir" $ makeChange $ void $
 				catchMaybeIO $ removeDirectory tmpdir
 			, userScriptProperty user ["rm -rf .aptitude/ .bashrc .profile; bin/mr checkout; bin/fixups"]
+				`assume` MadeChange
 			]
 	moveout tmpdir home = do
 		fs <- dirContents tmpdir
@@ -28,7 +30,7 @@ installedFor user = check (not <$> hasGitDir user) $
 url :: String
 url = "git://git.kitenet.net/joey/home"
 
-hasGitDir :: UserName -> IO Bool
+hasGitDir :: User -> IO Bool
 hasGitDir user = go =<< homedir user
   where
 	go home = doesDirectoryExist (home </> ".git")

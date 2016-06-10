@@ -1,5 +1,5 @@
+/propellor
 dist/*
-propellor
 tags
 privdata/local
 privdata/keyring.gpg~
@@ -7,3 +7,12 @@ Setup
 Setup.hi
 Setup.o
 docker
+chroot
+propellor.1
+.lock
+.lastchecked
+.stack-work/*
+.cabal-sandbox/
+.dir-locals.el
+cabal.sandbox.config
+*~

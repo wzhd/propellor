@@ -1,0 +1,1 @@
+extend-diff-ignore = "(^|/)(\.cabal-sandbox|docsets|\.dir-locals\.el|cabal\.sandbox\.config)"

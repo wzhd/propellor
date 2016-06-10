@@ -2,24 +2,25 @@ module Propellor.Property.Sudo where
 
 import Data.List
 
-import Propellor
+import Propellor.Base
 import Propellor.Property.File
 import qualified Propellor.Property.Apt as Apt
 import Propellor.Property.User
 
 -- | Allows a user to sudo. If the user has a password, sudo is configured
 -- to require it. If not, NOPASSWORD is enabled for the user.
-enabledFor :: UserName -> Property
-enabledFor user = property desc go `requires` Apt.installed ["sudo"]
+enabledFor :: User -> Property DebianLike
+enabledFor user@(User u) = go `requires` Apt.installed ["sudo"]
   where
-	go = do
+	go :: Property UnixLike
+	go = property' desc $ \w -> do
 		locked <- liftIO $ isLockedPassword user
-		ensureProperty $
+		ensureProperty w $
 			fileProperty desc
 				(modify locked . filter (wanted locked))
 				"/etc/sudoers"
-	desc = user ++ " is sudoer"
-	sudobaseline = user ++ " ALL=(ALL:ALL)"
+	desc = u ++ " is sudoer"
+	sudobaseline = u ++ " ALL=(ALL:ALL)"
 	sudoline True = sudobaseline ++ " NOPASSWD:ALL"
 	sudoline False = sudobaseline ++ " ALL"
 	wanted locked l

@@ -1,0 +1,5 @@
+debian-watch-may-check-gpg-signature
+# the binary package names make the distinctions clear
+duplicate-long-description
+# the binary package names make the distinctions clear
+duplicate-short-description

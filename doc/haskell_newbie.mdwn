@@ -8,7 +8,7 @@ configure Propellor!
 Let's take a quick tour of the `config.hs` file..
 
 [[!format haskell """
--- | This is the main configuration file for Propellor, and is used to build
+-- This is the main configuration file for Propellor, and is used to build
 -- the propellor program.
 """]]
 
@@ -16,7 +16,6 @@ So, `-- ` starts a comment in this file.
 
 [[!format haskell """
 import Propellor
-import Propellor.CmdLine
 import qualified Propellor.Property.File as File
 import qualified Propellor.Property.Apt as Apt
 import qualified Propellor.Property.User as User
@@ -37,22 +36,29 @@ stub to go run itself. No need to ever change this part.
 
 [[!format haskell """
 -- The hosts propellor knows about.
--- Edit this to configure propellor!
 hosts :: [Host]
 hosts =
-    [ host "mybox.example.com"
-    	& os (System (Debian Unstable) "amd64")
-        & Apt.stdSourcesList
-    , host "server.example.com"
-    	& os (System (Debian Stable) "amd64")
-        & Apt.stdSourcesList
-        & Apt.installed ["ssh"]
-    ]
+	[ mylaptop
+	, myserver
+	]
 """]]
 
-This defines a list of hosts, with two hosts in it. 
+Finally, you need to define the configuration for each host in the list:
 
-The configuration for the mybox host first tells propellor what
+[[!format haskell """
+mylaptop :: Host
+mylaptop = host "mylaptop.example.com"
+	& osDebian Unstable "amd64"
+	& Apt.stdSourcesList
+
+myserver :: Host
+myserver = host "server.example.com"
+	& osDebian (Stable "jessie") "amd64"
+	& Apt.stdSourcesList
+	& Apt.installed ["ssh"]
+"""]]
+
+The configuration for the mylaptop host first tells propellor what
 OS it's running. Then the `stdSourcesList` line tells propellor to
 configure its `/etc/apt/sources.list`, using its OS.
 (Of course you might want to change that `Unstable` to `Stable`.)
@@ -64,9 +70,9 @@ Some other properties you may find in your config.hs, or want to add:
 
 [[!format haskell """
         & Apt.unattendedUpgrades
-        & User.hasSomePassword "root"
+        & User.hasSomePassword (User "root")
         & "/etc/default/foodaemon" `File.containsLine` "ENABLED=yes"
-        & Cron.runPropellor "30 * * * *"
+        & Cron.runPropellor (Cron.Times "30 * * * *")
 """]]
 
 Some of these properties can be reverted -- this makes Propellor undo whatever
@@ -90,11 +96,11 @@ is.
 <pre>
 config.hs:30:19:
     Couldn't match expected type `RevertableProperty'
-                with actual type `Property'
+                with actual type `Property DebianLike'
     In the return type of a call of `Apt.installed'
     In the second argument of `(!)', namely `Apt.installed ["ssh"]'
     In the first argument of `(&)', namely
-      `host "mybox.example.com" & Apt.stdSourcesList Unstable
+      `host "mylaptop.example.com" & Apt.stdSourcesList Unstable
        & Apt.unattendedUpgrades
        ! Apt.installed ["ssh"]'
 </pre>
@@ -114,7 +120,8 @@ That's really all there is to configuring Propellor. Once you
 have a `config.hs` ready to try out, you can run `propellor --spin $host`
 on one of the hosts configured in it.
 
-See the [[README]] for a further quick start.
+See the [[README]] for a further quick start and [[Writing Properties]]
+for guidance on extending propellor with your own custom properties.
 
 (If you'd like to learn a little Haskell after all, check out
 [Learn You a Haskell for Great Good](http://learnyouahaskell.com/).)
