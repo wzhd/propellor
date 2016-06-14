@@ -1,5 +1,19 @@
+  * Propellor.Precompiled: New module that can be used to specify
+    that propellor should be precompiled before being sent to a Host.
+    This allows using propellor on a Host without needing to install
+    ghc on it.
+    Thanks, Félix Sipma.
+
 propellor (3.1.0) UNRELEASED; urgency=medium
 
+  * Switch letsencrypt to certbot package name.
+  * Sbuild: Add keyringInsecurelyGenerated which is useful on throwaway
+    build VMs.
+    Thanks, Sean Whitton
+  * Added Propellor.Property.SiteSpecific.Exoscale.
+    Thanks, Sean Whitton
+  * Property.Reboot: Added toDistroKernel and toKernelNewerThan.
+    Thanks, Sean Whitton
   * Architecture changed from String to an ADT. (API Change)
     Transition guide: Change "amd64" to X86_64, "i386" to X86_32,
     "armel" to ARMEL, etc.
@@ -8,15 +22,27 @@ propellor (3.1.0) UNRELEASED; urgency=medium
     This won't affect most config.hs, as osDebian defaults to
     Linux. Added osDebian' can be used to specify a different kernel.
     Thanks, Félix Sipma.
-  * Propellor.Precompiled: New module that can be used to specify
-    that propellor should be precompiled before being sent to a Host.
-    This allows using propellor on a Host without needing to install
-    ghc on it.
-    Thanks, Félix Sipma.
+  * Improve exception handling. A property that threw a non-IOException
+    used to stop the whole propellor run. Now, all non-async exceptions
+    only make the property that threw them fail. (Implicit API change)
+  * Added StopPropellorException and stopPropellorMessage which can be
+    used in the unusual case where a failure of one property should stop
+    propellor from trying to ensure any other properties.
+  * tryPropellor returns Either SomeException instead of Either IOException
+    (API change)
+
+ -- Joey Hess <id@joeyh.name>  Fri, 10 Jun 2016 14:59:44 -0400
+
+propellor (3.0.5) unstable; urgency=medium
+
   * Modules added for Sbuild and Ccache.
     Thanks, Sean Whitton
+  * Systemd: Added killUserProcesses property, which can be reverted
+    to return systemd to its default behavior before version 230 started
+    killing processes like screen sessions.
+  * Systemd: Added logindConfigured property.
 
- -- Joey Hess <id@joeyh.name>  Mon, 23 May 2016 11:19:28 -0400
+ -- Joey Hess <id@joeyh.name>  Mon, 06 Jun 2016 17:13:21 -0400
 
 propellor (3.0.4) unstable; urgency=medium
 
