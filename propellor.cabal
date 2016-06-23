@@ -22,7 +22,6 @@ Extra-Source-Files:
   contrib/post-merge-hook
   stack.yaml
   debian/changelog
-  debian/README.Debian
   debian/compat
   debian/control
   debian/copyright
