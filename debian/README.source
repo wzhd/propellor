@@ -1,0 +1,15 @@
+The upstream changelog and Debian changelog are the same file; we use
+dpkg-mergechangelogs to merge them together when upstream makes a new
+release.
+
+This confuses dpkg-genchanges: since our X-1 changelog entry follows
+upstream's X changelog entry, dpkg-genchanges thinks that this is a
+revision and we don't need to include the upstream tarball in the
+upload.
+
+To deal with this, pass -sa to dpkg-buildpackage.  If using dgit, the
+magic incantation is:
+
+    dgit --ch:-sa [s]build
+
+ -- Sean Whitton <spwhitton@spwhitton.name>, Thu, 23 Jun 2016 17:23:30 +0900
