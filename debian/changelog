@@ -1,6 +1,6 @@
 propellor (3.1.0-1) UNRELEASED; urgency=medium
 
-  * New upstream release.
+  * Package new upstream release.
   * Add 0002-dpkg-mergechangelogs.patch to facilitate uploading with dgit.
     Adding this patch ensures that HEAD matches the unpacked source package.
   * Add README.source.
