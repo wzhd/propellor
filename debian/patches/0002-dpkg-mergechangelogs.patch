@@ -1,0 +1,11 @@
+Description: Set up dpkg-mergechangelogs
+ To deal with the merged upstream and Debian changelog.
+Author: Sean Whitton <spwhitton@spwhitton.name>
+Forwarded: not-needed
+
+---
+
+--- /dev/null
++++ propellor-3.1.0/.gitattributes
+@@ -0,0 +1 @@
++debian/changelog merge=dpkg-mergechangelogs
