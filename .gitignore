@@ -12,8 +12,6 @@ propellor.1
 .lock
 .lastchecked
 .stack-work/*
-/debian/files
-/debian/propellor.substvars
 .cabal-sandbox/
 .dir-locals.el
 cabal.sandbox.config
