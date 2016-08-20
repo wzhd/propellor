@@ -1,0 +1,26 @@
+From 3f0c8a5158e61ea1c4fcb39a71803208104cd3ac Mon Sep 17 00:00:00 2001
+From: Sean Whitton <spwhitton@spwhitton.name>
+Date: Sat, 20 Aug 2016 07:27:04 -0700
+Subject: [PATCH] pass --allow-unrelated-histories to git merge
+
+Fixes merging the /usr/src/propellor git bundle with git 2.9.
+---
+ src/Propellor/DotDir.hs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/Propellor/DotDir.hs b/src/Propellor/DotDir.hs
+index c73420b..cd079bc 100644
+--- a/src/Propellor/DotDir.hs
++++ b/src/Propellor/DotDir.hs
+@@ -401,7 +401,7 @@ setupUpstreamMaster newref = do
+ 		changeWorkingDirectory tmprepo
+ 		git ["fetch", distrepo, "--quiet"]
+ 		git ["reset", "--hard", oldref, "--quiet"]
+-		git ["merge", newref, "-s", "recursive", "-Xtheirs", "--quiet", "-m", "merging upstream version"]
++		git ["merge", newref, "-s", "recursive", "-Xtheirs", "--quiet", "--allow-unrelated-histories", "-m", "merging upstream version"]
+ 
+ 		void $ fetchUpstreamBranch tmprepo
+ 		cleantmprepo
+-- 
+2.9.3
+
