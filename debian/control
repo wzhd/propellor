@@ -109,7 +109,7 @@ Architecture: any
 Depends:
  cabal-install,
  ghc (>= 7.4),
- git,
+ git (>= 1:2.9),
  libghc-ansi-terminal-dev,
  libghc-async-dev,
  libghc-concurrent-output-dev,

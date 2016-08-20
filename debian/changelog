@@ -1,6 +1,7 @@
 propellor (3.1.0-2) UNRELEASED; urgency=medium
 
   * Add 0004-pass-allow-unrelated-histories-to-git-merge.patch (Closes: #834895)
+    - Tighten dependency on git to >= 1:2.9 for --allow-unrelated-histories
 
  -- Sean Whitton <spwhitton@spwhitton.name>  Sat, 20 Aug 2016 07:31:44 -0700
 
