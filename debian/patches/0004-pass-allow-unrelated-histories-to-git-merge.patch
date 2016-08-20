@@ -1,7 +1,6 @@
-From 3f0c8a5158e61ea1c4fcb39a71803208104cd3ac Mon Sep 17 00:00:00 2001
-From: Sean Whitton <spwhitton@spwhitton.name>
-Date: Sat, 20 Aug 2016 07:27:04 -0700
-Subject: [PATCH] pass --allow-unrelated-histories to git merge
+Description: fix for git 2.9
+Author: Sean Whitton <spwhitton@spwhitton.name>
+Forwarded: yes
 
 Fixes merging the /usr/src/propellor git bundle with git 2.9.
 ---
