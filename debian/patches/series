@@ -1,4 +1,3 @@
 0001-remove-README.Debian-from-propellor.cabal.patch
 0002-dpkg-mergechangelogs.patch
 0003-fix-ccache-haddock.patch
-0004-pass-allow-unrelated-histories-to-git-merge.patch
