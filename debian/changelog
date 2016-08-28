@@ -3,6 +3,7 @@ propellor (3.1.2-1) UNRELEASED; urgency=medium
   * New upstream release.
   * Drop patches obsoleted by upstream changes:
     - 0001-remove-README.Debian-from-propellor.cabal.patch
+    - 0003-fix-ccache-haddock.patch
     - 0004-pass-allow-unrelated-histories-to-git-merge.patch.
 
  -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 28 Aug 2016 13:11:59 -0700
