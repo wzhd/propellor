@@ -1,5 +1,5 @@
 Name: propellor
-Version: 3.1.0
+Version: 3.1.2
 Cabal-Version: >= 1.8
 License: BSD2
 Maintainer: Joey Hess <id@joeyh.name>
@@ -22,6 +22,7 @@ Extra-Source-Files:
   contrib/post-merge-hook
   stack.yaml
   debian/changelog
+  debian/propellor.README.Debian
   debian/compat
   debian/control
   debian/copyright

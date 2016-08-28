@@ -6,52 +6,67 @@ Maintainer: Sean Whitton <spwhitton@spwhitton.name>
 
 Build and maintain schroots for use with sbuild.
 
+For convenience we set up several enhancements, such as ccache and
+eatmydata.  This means we have to make several assumptions:
+
+1. you want to build for a Debian release strictly newer than squeeze,
+or for a Buntish release newer than or equal to trusty
+
+2. if you want to build for Debian stretch or newer, you have sbuild
+0.70.0 or newer (there is a backport to jessie)
+
+The latter is due to the migration from GnuPG v1 to GnuPG v2.1 in
+Debian stretch, which older sbuild can't handle.
+
 Suggested usage in @config.hs@:
 
 >  & Apt.installed ["piuparts", "autopkgtest"]
->  & Sbuild.builtFor (System (Debian Unstable) X86_32)
->  & Sbuild.piupartsConfFor (System (Debian Unstable) X86_32)
->  & Sbuild.updatedFor (System (Debian Unstable) X86_32) `period` Weekly 1
+>  & Sbuild.builtFor (System (Debian Linux Unstable) X86_32)
+>  & Sbuild.piupartsConfFor (System (Debian Linux Unstable) X86_32)
+>  & Sbuild.updatedFor (System (Debian Linux Unstable) X86_32) `period` Weekly 1
 >  & Sbuild.usableBy (User "spwhitton")
 >  & Sbuild.shareAptCache
 >  & Schroot.overlaysInTmpfs
 
-In @~/.sbuildrc@:
+If you are using sbuild older than 0.70.0, you also need:
+
+>  & Sbuild.keypairGenerated
+
+In @~/.sbuildrc@ (sbuild 0.71.0 or newer):
 
 >  $run_piuparts = 1;
 >  $piuparts_opts = [
 >      '--schroot',
->      'unstable-i386-piuparts',
+>      '%r-%a-piuparts',
 >      '--fail-if-inadequate',
 >      '--fail-on-broken-symlinks',
 >      ];
 >
->  $external_commands = {
->    'post-build-commands' => [
->      [
->        'adt-run',
->        '--changes', '%c',
->        '---',
->        'schroot', 'unstable-i386-sbuild;',
->
->        # if adt-run's exit code is 8 then the package had no tests but
->        # this isn't a failure, so catch it
->        'adtexit=$?;',
->        'if', 'test', '$adtexit', '=', '8;', 'then',
->        'exit', '0;', 'else', 'exit', '$adtexit;', 'fi'
->      ],
->    ],
->  };
+>  $run_autopkgtest = 1;
+>  $autopkgtest_root_args = "";
+>  $autopkgtest_opts = ["--", "schroot", "%r-%a-sbuild"];
 
-We use @sbuild-createchroot(1)@ to create a chroot to the specification of
-@sbuild-setup(7)@.  This differs from the approach taken by picca's Sbuild.hs,
-which uses 'Propellor.Property.Debootstrap' to construct the chroot.  This is
-because we don't want to run propellor inside the chroot in order to keep the
-sbuild environment as standard as possible.
+We use @sbuild-createchroot(1)@ to create a chroot to the
+specification of @sbuild-setup(7)@.  This avoids running propellor
+inside the chroot to set it up.  While that approach is flexible, a
+propellor spin pulls in a lot of dependencies.  This could defeat
+using sbuild to determine if you've included all necessary build
+dependencies in your source package control file.
+
+Nevertheless, the chroot that @sbuild-createchroot(1)@ creates might
+not meet your needs.  For example, you might need to enable an apt
+cacher.  In that case you can do something like this in @config.hs@:
+
+>  & Sbuild.built (System (Debian Linux Unstable) X86_32) `before` mySetup
+>    where
+>  	mySetup = Chroot.provisioned myChroot
+>  	myChroot = Chroot.debootstrapped
+>  		 	Debootstrap.BuilddD "/srv/chroot/unstable-i386"
+>  		-- the extra configuration you need:
+>  		& Apt.installed ["apt-transport-https"]
 -}
 
--- If you wanted to do it with Propellor.Property.Debootstrap, note that
--- sbuild-createchroot has a --setup-only option
+-- Also see the --setup-only option of sbuild-createchroot
 
 module Propellor.Property.Sbuild (
 	-- * Creating and updating sbuild schroots
@@ -122,7 +137,6 @@ builtFor sys = go <!> deleted
 built :: SbuildSchroot -> Apt.Url -> RevertableProperty DebianLike UnixLike
 built s@(SbuildSchroot suite arch) mirror =
 	(go
-	`requires` keypairGenerated
 	`requires` ccachePrepared
 	`requires` installed
 	`requires` overlaysKernel)
@@ -149,6 +163,8 @@ built s@(SbuildSchroot suite arch) mirror =
 				`before` commandPrefix
 			, return FailedChange
 			)
+	-- TODO we should kill any sessions still using the chroot
+	-- before destroying it (as suggested by sbuild-destroychroot)
 	deleted = check (not <$> unpopulated (schrootRoot s)) $
 		property ("no sbuild schroot for " ++ show s) $ do
 			liftIO $ removeChroot $ schrootRoot s
@@ -216,7 +232,6 @@ updated :: SbuildSchroot -> Property DebianLike
 updated s@(SbuildSchroot suite arch) =
 	check (doesDirectoryExist (schrootRoot s)) $ go
 	`describe` ("updated schroot for " ++ show s)
-	`requires` keypairGenerated
 	`requires` installed
   where
 	go :: Property DebianLike
@@ -340,6 +355,8 @@ usableBy :: User -> Property DebianLike
 usableBy u = User.hasGroup u (Group "sbuild") `requires` installed
 
 -- | Generate the apt keys needed by sbuild
+--
+-- You only need this if you are using sbuild older than 0.70.0.
 keypairGenerated :: Property DebianLike
 keypairGenerated = check (not <$> doesFileExist secKeyFile) $ go
 	`requires` installed
@@ -358,15 +375,39 @@ secKeyFile = "/var/lib/sbuild/apt-keys/sbuild-key.sec"
 -- | Generate the apt keys needed by sbuild using a low-quality source of
 -- randomness
 --
+-- Note that any running rngd will be killed; if you are using rngd, you should
+-- arrange for it to be restarted after this property has been ensured.  E.g.
+--
+-- >  & Sbuild.keypairInsecurelyGenerated
+-- >  	`onChange` Systemd.started "my-rngd-service"
+--
 -- Useful on throwaway build VMs.
+--
+-- You only need this if you are using sbuild older than 0.70.0.
 keypairInsecurelyGenerated :: Property DebianLike
 keypairInsecurelyGenerated = check (not <$> doesFileExist secKeyFile) go
   where
 	go :: Property DebianLike
 	go = combineProperties "sbuild keyring insecurely generated" $ props
 		& Apt.installed ["rng-tools"]
-		& cmdProperty "rngd" ["-r", "/dev/urandom"] `assume` MadeChange
+		-- If this dir does not exist the sbuild key generation command
+		-- will fail; the user might have deleted it to work around
+		-- #831462
+		& File.dirExists "/var/lib/sbuild/apt-keys"
+		-- If there is already an rngd process running we have to kill
+		-- it, as it might not be feeding to /dev/urandom.  We can't
+		-- kill by pid file because that is not guaranteed to be the
+		-- default (/var/run/rngd.pid), so we killall
+		& userScriptProperty (User "root")
+			[ "start-stop-daemon -q -K -R 10 -o -n rngd"
+			, "rngd -r /dev/urandom"
+			]
+			`assume` MadeChange
 		& keypairGenerated
+		-- Kill off the rngd process we spawned
+		& userScriptProperty (User "root")
+			["kill $(cat /var/run/rngd.pid)"]
+			`assume` MadeChange
 
 -- another script from wiki.d.o/sbuild
 ccachePrepared :: Property DebianLike
