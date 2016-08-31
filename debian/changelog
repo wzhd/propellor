@@ -1,6 +1,6 @@
 propellor (3.1.2-1) UNRELEASED; urgency=medium
 
-  * New upstream release.
+  * Package new upstream release.
   * Drop patches obsoleted by upstream changes:
     - 0001-remove-README.Debian-from-propellor.cabal.patch
     - 0003-fix-ccache-haddock.patch
