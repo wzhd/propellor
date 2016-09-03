@@ -5,6 +5,9 @@ propellor (3.1.2-1) UNRELEASED; urgency=medium
     - 0001-remove-README.Debian-from-propellor.cabal.patch
     - 0003-fix-ccache-haddock.patch
     - 0004-pass-allow-unrelated-histories-to-git-merge.patch.
+  * Drop some unused lintian overrides.
+  * Override binary-or-shlib-defines-rpath for -dev package.
+    Standard libghc override.
 
  -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 28 Aug 2016 13:11:59 -0700
 
