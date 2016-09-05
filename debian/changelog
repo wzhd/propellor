@@ -1,4 +1,4 @@
-propellor (3.1.2-1) UNRELEASED; urgency=medium
+propellor (3.1.2-1) unstable; urgency=medium
 
   * Package new upstream release.
   * Drop patches obsoleted by upstream changes:
@@ -9,7 +9,7 @@ propellor (3.1.2-1) UNRELEASED; urgency=medium
   * Override binary-or-shlib-defines-rpath for -dev package.
     Standard libghc override.
 
- -- Sean Whitton <spwhitton@spwhitton.name>  Sun, 28 Aug 2016 13:11:59 -0700
+ -- Sean Whitton <spwhitton@spwhitton.name>  Mon, 05 Sep 2016 10:24:17 -0700
 
 propellor (3.1.2) unstable; urgency=medium
 
