@@ -44,6 +44,7 @@ type DebianLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish ]
 type Debian = MetaTypes '[ 'Targeting 'OSDebian ]
 type Buntish = MetaTypes '[ 'Targeting 'OSBuntish ]
 type FreeBSD = MetaTypes '[ 'Targeting 'OSFreeBSD ]
+type ArchLinux = MetaTypes '[ 'Targeting 'OSArchLinux ]
 
 -- | Used to indicate that a Property adds Info to the Host where it's used.
 type HasInfo = MetaTypes '[ 'WithInfo ]
@@ -59,16 +60,19 @@ data instance Sing (x :: MetaType) where
 	OSDebianS :: Sing ('Targeting 'OSDebian)
 	OSBuntishS :: Sing ('Targeting 'OSBuntish)
 	OSFreeBSDS :: Sing ('Targeting 'OSFreeBSD)
+	OSArchLinuxS :: Sing ('Targeting 'OSArchLinux)
 	WithInfoS :: Sing 'WithInfo
 instance SingI ('Targeting 'OSDebian) where sing = OSDebianS
 instance SingI ('Targeting 'OSBuntish) where sing = OSBuntishS
 instance SingI ('Targeting 'OSFreeBSD) where sing = OSFreeBSDS
+instance SingI ('Targeting 'OSArchLinux) where sing = OSArchLinuxS
 instance SingI 'WithInfo where sing = WithInfoS
 instance SingKind ('KProxy :: KProxy MetaType) where
 	type DemoteRep ('KProxy :: KProxy MetaType) = MetaType
 	fromSing OSDebianS = Targeting OSDebian
 	fromSing OSBuntishS = Targeting OSBuntish
 	fromSing OSFreeBSDS = Targeting OSFreeBSD
+	fromSing OSArchLinuxS = Targeting OSArchLinux
 	fromSing WithInfoS = WithInfo
 
 -- | Convenience type operator to combine two `MetaTypes` lists.
