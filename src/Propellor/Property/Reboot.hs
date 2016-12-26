@@ -36,7 +36,7 @@ type Force = Bool
 --
 -- The reboot can be forced to run, which bypasses the init system. Useful
 -- if the init system might not be running for some reason.
-atEnd :: Force -> (Result -> Bool) -> Property Linux
+atEnd :: Force -> (Result -> Bool) -> Property DebianLike
 atEnd force resultok = property "scheduled reboot at end of propellor run" $ do
 	endAction "rebooting" atend
 	return NoChange
@@ -58,7 +58,7 @@ atEnd force resultok = property "scheduled reboot at end of propellor run" $ do
 -- kernel won't just get booted again.
 -- See 'Propellor.Property.HostingProvider.DigitalOcean'
 -- for an example of how to do this.
-toDistroKernel :: Property DebianLike
+toDistroKernel :: Property Linux
 toDistroKernel = check (not <$> runningInstalledKernel) now
 	`describe` "running installed kernel"
 

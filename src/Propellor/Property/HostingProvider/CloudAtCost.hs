@@ -18,7 +18,7 @@ decruft = propertyList "cloudatcost cleanup" $ props
 			`describe` "worked around grub/lvm boot bug #743126"
 			`onChange` (cmdProperty "update-grub" [] `assume` MadeChange)
 			`onChange` (cmdProperty "update-initramfs" ["-u"] `assume` MadeChange)
-	nukecruft :: Property Linux
+	nukecruft :: Property DebianLike
 	nukecruft = tightenTargets $
 		combineProperties "nuked cloudatcost cruft" $ props
 			& File.notPresent "/etc/rc.local"
