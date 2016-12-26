@@ -7,6 +7,7 @@ module Propellor.Types.MetaTypes (
 	DebianLike,
 	Debian,
 	Buntish,
+	ArchLinux,
 	FreeBSD,
 	HasInfo,
 	MetaTypes,
@@ -35,9 +36,9 @@ data MetaType
 	deriving (Show, Eq, Ord)
 
 -- | Any unix-like system
-type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSFreeBSD ]
+type UnixLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSArchLinux, 'Targeting 'OSFreeBSD ]
 -- | Any linux system
-type Linux = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish ]
+type Linux = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish, 'Targeting 'OSArchLinux]
 -- | Debian and derivatives.
 type DebianLike = MetaTypes '[ 'Targeting 'OSDebian, 'Targeting 'OSBuntish ]
 type Debian = MetaTypes '[ 'Targeting 'OSDebian ]
@@ -186,6 +187,14 @@ type instance EqT 'OSBuntish 'OSDebian  = 'False
 type instance EqT 'OSBuntish 'OSFreeBSD = 'False
 type instance EqT 'OSFreeBSD 'OSDebian  = 'False
 type instance EqT 'OSFreeBSD 'OSBuntish = 'False
+type instance EqT 'OSArchLinux 'OSArchLinux = 'True
+type instance EqT 'OSArchLinux 'OSDebian    = 'True
+type instance EqT 'OSArchLinux 'OSBuntish   = 'True
+type instance EqT 'OSArchLinux 'OSFreeBSD   = 'True
+type instance EqT 'OSDebian    'OSArchLinux = 'False
+type instance EqT 'OSBuntish   'OSArchLinux = 'False
+type instance EqT 'OSFreeBSD   'OSArchLinux = 'False
+
 -- More modern version if the combinatiorial explosion gets too bad later:
 --
 -- type family Eq (a :: MetaType) (b :: MetaType) where
