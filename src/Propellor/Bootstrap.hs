@@ -75,7 +75,7 @@ depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) 
 
 	aptinstall p = "DEBIAN_FRONTEND=noninteractive apt-get -qq --no-upgrade --no-install-recommends -y install " ++ p
 	pkginstall p = "ASSUME_ALWAYS_YES=yes pkg install " ++ p
-	pacmaninstall p = "pacman -S --noconfirm --needed" ++ p
+	pacmaninstall p = "pacman -S --noconfirm --needed " ++ p
 
 	-- This is the same deps listed in debian/control.
 	debdeps =
@@ -143,7 +143,7 @@ installGitCommand msys = case msys of
 		, "ASSUME_ALWAYS_YES=yes pkg install git"
 		]
 	(Just (System (ArchLinux) _)) -> use
-		[ "pacman -Syu --needed git"]
+		[ "pacman -Syu --needed --noconfirm git"]
 	-- assume a debian derived system when not specified
 	Nothing -> use apt
   where
