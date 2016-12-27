@@ -56,7 +56,7 @@ checkDepsCommand sys = "if ! cabal configure >/dev/null 2>&1; then " ++ depsComm
 --
 -- Note: May succeed and leave some deps not installed.
 depsCommand :: Maybe System -> ShellCommand
-depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) ++ " ) || true"
+depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, srcinstall, cabalinstall]) ++ " ) || true"
   where
 	osinstall = case msys of
 		Just (System (FreeBSD _) _) -> map pkginstall fbsddeps
@@ -67,6 +67,16 @@ depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, cabalinstall]) 
 		Nothing -> useapt
 
 	useapt = "apt-get update" : map aptinstall debdeps
+
+	srcinstall =
+		[ "sh -c 'if [ ! -d propellor-lib ] ; then git clone https://github.com/wzhd/propellor.git propellor-lib; fi'"
+		, "cd propellor-lib"
+		, "git pull"
+		, "cabal build lib:propellor"
+		, "cabal copy"
+		, "cabal register"
+		, "cd .."
+		]
 
 	cabalinstall =
 		[ "cabal update"
