@@ -18,25 +18,26 @@ import Propellor.Spin
 import Propellor.Types.CmdLine
 import qualified Propellor.Property.Chroot as Chroot
 import qualified Propellor.Shim as Shim
+import Utility.FileSystemEncoding
 
 usage :: Handle -> IO ()
 usage h = hPutStrLn h $ unlines
 	[ "Usage:"
 	, "  propellor --init"
 	, "  propellor"
-	, "  propellor hostname"
 	, "  propellor --spin targethost [--via relayhost]"
+	, "  propellor --build"
 	, "  propellor --add-key keyid"
 	, "  propellor --rm-key keyid"
 	, "  propellor --list-fields"
-	, "  propellor --dump field context"
-	, "  propellor --edit field context"
 	, "  propellor --set field context"
 	, "  propellor --unset field context"
 	, "  propellor --unset-unused"
+	, "  propellor --dump field context"
+	, "  propellor --edit field context"
 	, "  propellor --merge"
-	, "  propellor --build"
 	, "  propellor --check"
+	, "  propellor hostname"
 	]
 
 usageError :: [String] -> IO a
@@ -53,6 +54,7 @@ processCmdLine = go =<< getArgs
 			<$> mapM hostname (reverse hs)
 			<*> pure (Just r)
 		_ -> Spin <$> mapM hostname ps <*> pure Nothing
+	go ("--build":[]) = return Build
 	go ("--add-key":k:[]) = return $ AddKey k
 	go ("--rm-key":k:[]) = return $ RmKey k
 	go ("--set":f:c:[]) = withprivfield f c Set
@@ -93,6 +95,7 @@ data CanRebuild = CanRebuild | NoRebuild
 -- | Runs propellor on hosts, as controlled by command-line options.
 defaultMain :: [Host] -> IO ()
 defaultMain hostlist = withConcurrentOutput $ do
+	useFileSystemEncoding
 	Shim.cleanEnv
 	checkDebugMode
 	cmdline <- processCmdLine
@@ -101,6 +104,7 @@ defaultMain hostlist = withConcurrentOutput $ do
   where
 	go cr (Serialized cmdline) = go cr cmdline
 	go _ Check = return ()
+	go cr Build = buildFirst Nothing cr Build $ return ()
 	go _ (Set field context) = setPrivData field context
 	go _ (Unset field context) = unsetPrivData field context
 	go _ (UnsetUnused) = unsetPrivDataUnused hostlist
