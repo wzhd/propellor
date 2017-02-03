@@ -78,7 +78,8 @@ scrollBox = propertyList "scroll server" $ props
 		`onChange` Ssh.restarted
 	& User.shellSetTo (User "scroll") s
 	& User.hasPassword (User "scroll")
-	& Apt.serviceInstalledRunning "telnetd"
+	-- telnetd attracted password crackers, so disabled
+	& Apt.removed ["telnetd"]
 	& Apt.installed ["shellinabox"]
 	& File.hasContent "/etc/default/shellinabox"
 		[ "# Deployed by propellor"
@@ -369,7 +370,7 @@ tmp = propertyList "tmp.joeyh.name" $ props
 -- (Obsolete; need to revert this.)
 pumpRss :: Property DebianLike
 pumpRss = Cron.job "pump rss" (Cron.Times "15 * * * *") (User "joey") "/srv/web/tmp.joeyh.name/"
-	"wget https://rss.io.jpope.org/feed/joeyh@identi.ca.atom -O pump.atom.new --no-check-certificate 2>/dev/null; sed 's/ & / /g' pump.atom.new > pump.atom"
+	"wget https://pump2rss.com/feed/joeyh@identi.ca.atom -O pump.atom.new --no-check-certificate 2>/dev/null; sed 's/ & / /g' pump.atom.new > pump.atom"
 
 ircBouncer :: Property (HasInfo + DebianLike)
 ircBouncer = propertyList "IRC bouncer" $ props
