@@ -92,9 +92,9 @@ kpartx diskimage mkprop = go `requires` installed
         installed :: Property Linux
         installed = withOS "package installed" $ \w o -> case o of
 	        (Just (System (Debian _ _) _)) ->
-		        ensureProperty w $ Apt.installed [ "docker.io" ]
+		        ensureProperty w $ Apt.installed [ "kpartx" ]
                 (Just (System (Buntish _) _)) ->
-		        ensureProperty w $ Apt.installed [ "docker.io" ]
+		        ensureProperty w $ Apt.installed [ "kpartx" ]
 	        _ -> unsupportedOS'
 
 
