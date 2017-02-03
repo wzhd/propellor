@@ -23,6 +23,7 @@ module Propellor.Property.Parted (
 
 import Propellor.Base
 import qualified Propellor.Property.Apt as Apt
+import qualified Propellor.Property.Pacman as Pacman
 import qualified Propellor.Property.Partition as Partition
 import Utility.DataUnits
 import Data.Char
@@ -153,7 +154,7 @@ data Eep = YesReallyDeleteDiskContents
 -- The FilePath can be a block device (eg, \/dev\/sda), or a disk image file.
 --
 -- This deletes any existing partitions in the disk! Use with EXTREME caution!
-partitioned :: Eep -> FilePath -> PartTable -> Property DebianLike
+partitioned :: Eep -> FilePath -> PartTable -> Property Linux
 partitioned eep disk (PartTable tabletype parts) = property' desc $ \w -> do
 	isdev <- liftIO $ isBlockDevice <$> getFileStatus disk
 	ensureProperty w $ combineProperties desc $ props
@@ -192,12 +193,19 @@ partitioned eep disk (PartTable tabletype parts) = property' desc $ \w -> do
 --
 -- Parted is run in script mode, so it will never prompt for input.
 -- It is asked to use cylinder alignment for the disk.
-parted :: Eep -> FilePath -> [String] -> Property DebianLike
+parted :: Eep -> FilePath -> [String] -> Property Linux
 parted YesReallyDeleteDiskContents disk ps = p `requires` installed
   where
 	p = cmdProperty "parted" ("--script":"--align":"cylinder":disk:ps)
 		`assume` MadeChange
 
 -- | Gets parted installed.
-installed :: Property DebianLike
-installed = Apt.installed ["parted"]
+installed :: Property Linux
+installed = withOS "package installed" $ \w o -> case o of
+	(Just (System (Debian _ _) _)) ->
+		ensureProperty w $ Apt.installed ["parted"]
+        (Just (System (Buntish _) _)) ->
+		ensureProperty w $ Apt.installed [ "parted" ]
+        (Just (System (ArchLinux) _)) ->
+		ensureProperty w $ Pacman.installed [ "parted" ]
+	_ -> unsupportedOS'
