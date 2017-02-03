@@ -65,10 +65,10 @@ isLoopDev' f
 -- within a disk image file. The resulting loop devices are passed to the
 -- property, which can operate on them. Always cleans up after itself,
 -- by removing the device maps after the property is run.
-kpartx :: FilePath -> ([LoopDev] -> Property DebianLike) -> Property DebianLike
-kpartx diskimage mkprop = go `requires` Apt.installed ["kpartx"]
+kpartx :: FilePath -> ([LoopDev] -> Property Linux) -> Property Linux
+kpartx diskimage mkprop = go `requires` installed
   where
-	go :: Property DebianLike
+	go :: Property Linux
 	go = property' (getDesc (mkprop [])) $ \w -> do
 		cleanup -- idempotency
 		loopdevs <- liftIO $ kpartxParse
@@ -80,6 +80,15 @@ kpartx diskimage mkprop = go `requires` Apt.installed ["kpartx"]
 		cleanup
 		return r
 	cleanup = void $ liftIO $ boolSystem "kpartx" [Param "-d", File diskimage]
+
+        installed :: Property Linux
+        installed = withOS "package installed" $ \w o -> case o of
+	        (Just (System (Debian _ _) _)) ->
+		        ensureProperty w $ Apt.installed [ "docker.io" ]
+                (Just (System (Buntish _) _)) ->
+		        ensureProperty w $ Apt.installed [ "docker.io" ]
+	        _ -> unsupportedOS'
+
 
 kpartxParse :: String -> [LoopDev]
 kpartxParse = mapMaybe (finddev . words) . lines
