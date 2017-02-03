@@ -16,6 +16,7 @@ import Propellor.Git.VerifiedBranch
 import Propellor.Bootstrap
 import Propellor.Spin
 import Propellor.Types.CmdLine
+import qualified Propellor.Property.Docker as Docker
 import qualified Propellor.Property.Chroot as Chroot
 import qualified Propellor.Shim as Shim
 import Utility.FileSystemEncoding
@@ -114,6 +115,8 @@ defaultMain hostlist = withConcurrentOutput $ do
 	go _ (AddKey keyid) = addKey keyid
 	go _ (RmKey keyid) = rmKey keyid
 	go _ c@(ChrootChain _ _ _ _) = Chroot.chain hostlist c
+	go _ (DockerChain hn cid) = Docker.chain hostlist hn cid
+	go _ (DockerInit hn) = Docker.init hn
 	go _ (GitPush fin fout) = gitPushHelper fin fout
 	go cr (Relay h) = forceConsole >>
 		updateFirst Nothing cr (Update (Just h)) (update (Just h))

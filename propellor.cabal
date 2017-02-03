@@ -102,6 +102,7 @@ Library
     Propellor.Property.DiskImage.PartSpec
     Propellor.Property.Dns
     Propellor.Property.DnsSec
+    Propellor.Property.Docker
     Propellor.Property.Fail2Ban
     Propellor.Property.File
     Propellor.Property.Firejail
@@ -154,6 +155,7 @@ Library
     Propellor.Property.HostingProvider.Exoscale
     Propellor.Property.HostingProvider.Linode
     Propellor.Property.SiteSpecific.GitHome
+    Propellor.Property.SiteSpecific.JoeySites
     Propellor.Property.SiteSpecific.GitAnnexBuilder
     Propellor.Property.SiteSpecific.Branchable
     Propellor.PropAccum
