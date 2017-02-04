@@ -72,6 +72,7 @@ depsCommand msys = "( " ++ intercalate " ; " (concat [osinstall, srcinstall, cab
 		[ "sh -c 'if [ ! -d propellor-lib ] ; then git clone https://github.com/wzhd/propellor.git propellor-lib; fi'"
 		, "cd propellor-lib"
 		, "git pull"
+                , "git checkout stable"
 		, "cabal build lib:propellor"
 		, "cabal copy"
 		, "cabal register"
