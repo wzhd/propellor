@@ -5,6 +5,7 @@
 module Propellor.Property.Pacman where
 
 import Propellor.Base
+import qualified Propellor.Property.Systemd as Systemd
 
 runPacman :: [String] -> UncheckedProperty ArchLinux
 runPacman ps = tightenTargets $ cmdProperty "pacman" ps
@@ -66,3 +67,11 @@ succeeds cmd args = (quietProcess >> return True)
 	quietProcess :: IO ()
 	quietProcess = withQuietOutput createProcessSuccess p
 	p = (proc cmd args)
+
+
+-- | Ensures that a service is installed and running.
+--
+-- Assumes that there is a 1:1 mapping between service names and apt
+-- package names.
+serviceInstalledRunning :: Package -> Property ArchLinux
+serviceInstalledRunning svc = Systemd.running svc `requires` installed [svc]
