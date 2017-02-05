@@ -22,22 +22,14 @@ type BorgParam = String
 
 type BorgRepo = FilePath
 
-installed :: Property Linux
-installed = withOS desc $ \w o -> case o of
-	(Just (System (Debian _ (Stable "jessie")) _)) -> ensureProperty w $
-		Apt.installedBackport ["borgbackup"]
-        (Just (System (ArchLinux) _)) -> ensureProperty w $
-		Pacman.installed ["borg"]
-	_ -> ensureProperty w $
-		Apt.installed ["borgbackup"]
-  where
-        desc = "installed borgbackup"
+installed :: Property (DebianLike + ArchLinux)
+installed = Apt.installed["borgbackup"] `pickOS` Pacman.installed ["borg"]
 
 repoExists :: BorgRepo -> IO Bool
 repoExists repo = boolSystem "borg" [Param "list", File repo]
 
 -- | Inits a new borg repository
-init :: BorgRepo -> Property Linux
+init :: BorgRepo -> Property (DebianLike + ArchLinux)
 init backupdir = check (not <$> repoExists backupdir) (cmdProperty "borg" initargs)
 	`requires` installed
   where
@@ -53,7 +45,7 @@ init backupdir = check (not <$> repoExists backupdir) (cmdProperty "borg" initar
 --
 -- The restore is performed atomically; restoring to a temp directory
 -- and then moving it to the directory.
-restored :: FilePath -> BorgRepo -> Property Linux
+restored :: FilePath -> BorgRepo -> Property (DebianLike + ArchLinux)
 restored dir backupdir = go `requires` installed
   where
 	go :: Property Linux
@@ -101,12 +93,12 @@ restored dir backupdir = go `requires` installed
 -- Since borg uses a fair amount of system resources, only one borg
 -- backup job will be run at a time. Other jobs will wait their turns to
 -- run.
-backup :: FilePath -> BorgRepo -> Cron.Times -> [BorgParam] -> [KeepPolicy] -> Property Linux
+backup :: FilePath -> BorgRepo -> Cron.Times -> [BorgParam] -> [KeepPolicy] -> Property DebianLike
 backup dir backupdir crontimes extraargs kp = backup' dir backupdir crontimes extraargs kp
 	`requires` restored dir backupdir
 
 -- | Does a backup, but does not automatically restore.
-backup' :: FilePath -> BorgRepo -> Cron.Times -> [BorgParam] -> [KeepPolicy] -> Property Linux
+backup' :: FilePath -> BorgRepo -> Cron.Times -> [BorgParam] -> [KeepPolicy] -> Property DebianLike
 backup' dir backupdir crontimes extraargs kp = cronjob
 	`describe` desc
 	`requires` installed
