@@ -5,11 +5,13 @@ module Propellor.Property.Nginx where
 import Propellor.Base
 import qualified Propellor.Property.File as File
 import qualified Propellor.Property.Apt as Apt
+import qualified Propellor.Property.Pacman as Pacman
 import qualified Propellor.Property.Service as Service
+import qualified Propellor.Property.Systemd as Systemd
 
 type ConfigFile = [String]
 
-siteEnabled :: HostName -> ConfigFile -> RevertableProperty DebianLike DebianLike
+siteEnabled :: HostName -> ConfigFile -> RevertableProperty (DebianLike + ArchLinux) (DebianLike + ArchLinux)
 siteEnabled hn cf = enable <!> disable
   where
 	enable = siteVal hn `File.isSymlinkedTo` siteValRelativeCfg hn
@@ -22,7 +24,7 @@ siteEnabled hn cf = enable <!> disable
 		`requires` installed
 		`onChange` reloaded
 
-siteAvailable :: HostName -> ConfigFile -> Property DebianLike
+siteAvailable :: HostName -> ConfigFile -> Property (DebianLike + ArchLinux)
 siteAvailable hn cf = "nginx site available " ++ hn ==> tightenTargets go
   where
 	comment = "# deployed with propellor, do not modify"
@@ -37,11 +39,13 @@ siteVal hn = "/etc/nginx/sites-enabled/" ++ hn
 siteValRelativeCfg :: HostName -> File.LinkTarget
 siteValRelativeCfg hn = File.LinkTarget ("../sites-available/" ++ hn)
 
-installed :: Property DebianLike
-installed = Apt.installed ["nginx"]
+installed :: Property (DebianLike + ArchLinux)
+installed = Apt.installed ["nginx"] `pickOS` Pacman.installed ["nginx"]
 
-restarted :: Property DebianLike
-restarted = Service.restarted "nginx"
+restarted :: Property (DebianLike + ArchLinux)
+restarted = Service.restarted "nginx" `pickOS` Systemd.restarted "nginx"
 
-reloaded :: Property DebianLike
-reloaded = Service.reloaded "nginx"
+-- TODO actually use systemctl reload
+reloaded :: Property (DebianLike + ArchLinux)
+reloaded = Service.reloaded "nginx" `pickOS` Systemd.restarted "nginx"
+
