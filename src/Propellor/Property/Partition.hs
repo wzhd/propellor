@@ -17,7 +17,7 @@ data Fs = EXT2 | EXT3 | EXT4 | BTRFS | REISERFS | XFS | FAT | VFAT | NTFS | Linu
 data Eep = YesReallyFormatPartition
 
 -- | Formats a partition.
-formatted :: Eep -> Fs -> FilePath -> Property Linux
+formatted :: Eep -> Fs -> FilePath -> Property DebianLike
 formatted = formatted' []
 
 -- | Options passed to a mkfs.* command when making a filesystem.
@@ -25,10 +25,10 @@ formatted = formatted' []
 -- Eg, ["-m0"]
 type MkfsOpts = [String]
 
-formatted' :: MkfsOpts -> Eep -> Fs -> FilePath -> Property Linux
+formatted' :: MkfsOpts -> Eep -> Fs -> FilePath -> Property DebianLike
 formatted' opts YesReallyFormatPartition fs dev = cmdProperty cmd opts'
 	`assume` MadeChange
-	`requires` installed
+	`requires` Apt.installed [pkg]
   where
 	(cmd, opts', pkg) = case fs of
 		EXT2 -> ("mkfs.ext2", q $ eff optsdev, "e2fsprogs")
@@ -46,14 +46,6 @@ formatted' opts YesReallyFormatPartition fs dev = cmdProperty cmd opts'
 	eff l = "-F":l
 	-- Be quiet.
 	q l = "-q":l
-
-        installed :: Property Linux
-        installed = withOS "package installed" $ \w o -> case o of
-	        (Just (System (Debian _ _) _)) ->
-		        ensureProperty w $ Apt.installed [pkg]
-                (Just (System (Buntish _) _)) ->
-		        ensureProperty w $ Apt.installed [pkg]
-	        _ -> unsupportedOS'
 
 data LoopDev = LoopDev
 	{ partitionLoopDev :: FilePath -- ^ device for a loop partition
@@ -73,10 +65,10 @@ isLoopDev' f
 -- within a disk image file. The resulting loop devices are passed to the
 -- property, which can operate on them. Always cleans up after itself,
 -- by removing the device maps after the property is run.
-kpartx :: FilePath -> ([LoopDev] -> Property Linux) -> Property Linux
-kpartx diskimage mkprop = go `requires` installed
+kpartx :: FilePath -> ([LoopDev] -> Property DebianLike) -> Property DebianLike
+kpartx diskimage mkprop = go `requires` Apt.installed ["kpartx"]
   where
-	go :: Property Linux
+	go :: Property DebianLike
 	go = property' (getDesc (mkprop [])) $ \w -> do
 		cleanup -- idempotency
 		loopdevs <- liftIO $ kpartxParse
@@ -88,15 +80,6 @@ kpartx diskimage mkprop = go `requires` installed
 		cleanup
 		return r
 	cleanup = void $ liftIO $ boolSystem "kpartx" [Param "-d", File diskimage]
-
-        installed :: Property Linux
-        installed = withOS "package installed" $ \w o -> case o of
-	        (Just (System (Debian _ _) _)) ->
-		        ensureProperty w $ Apt.installed [ "kpartx" ]
-                (Just (System (Buntish _) _)) ->
-		        ensureProperty w $ Apt.installed [ "kpartx" ]
-	        _ -> unsupportedOS'
-
 
 kpartxParse :: String -> [LoopDev]
 kpartxParse = mapMaybe (finddev . words) . lines

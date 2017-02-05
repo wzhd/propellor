@@ -154,7 +154,7 @@ data Eep = YesReallyDeleteDiskContents
 -- The FilePath can be a block device (eg, \/dev\/sda), or a disk image file.
 --
 -- This deletes any existing partitions in the disk! Use with EXTREME caution!
-partitioned :: Eep -> FilePath -> PartTable -> Property Linux
+partitioned :: Eep -> FilePath -> PartTable -> Property DebianLike
 partitioned eep disk (PartTable tabletype parts) = property' desc $ \w -> do
 	isdev <- liftIO $ isBlockDevice <$> getFileStatus disk
 	ensureProperty w $ combineProperties desc $ props
