@@ -153,7 +153,7 @@ installGitCommand msys = case msys of
 		, "ASSUME_ALWAYS_YES=yes pkg install git"
 		]
 	(Just (System (ArchLinux) _)) -> use
-		[ "pacman -Syu --needed --noconfirm git"]
+		[ "pacman -S --noconfirm --needed git"]
 	-- assume a debian derived system when not specified
 	Nothing -> use apt
   where

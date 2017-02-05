@@ -1,3 +1,7 @@
+-- | Maintainer: Zihao Wang <dev@wzhd.org>
+--
+-- Support for the Pacman package manager <https://www.archlinux.org/pacman/>
+
 module Propellor.Property.Pacman where
 
 import Propellor.Base
@@ -47,13 +51,13 @@ data InstallStatus = IsInstalled | NotInstalled
 getInstallStatus :: [Package] -> IO [InstallStatus]
 getInstallStatus ps = mapMaybe id <$> mapM status ps
   where
-        status :: Package -> IO (Maybe InstallStatus)
+	status :: Package -> IO (Maybe InstallStatus)
 	status p = do
-          ifM (succeeds "pacman" ["-Q", p])
-            (return (Just IsInstalled),
-             ifM (succeeds "pacman" ["-Sp", p])
-             (return (Just NotInstalled),
-             return Nothing))
+	  ifM (succeeds "pacman" ["-Q", p])
+	    (return (Just IsInstalled),
+	      ifM (succeeds "pacman" ["-Sp", p])
+	        (return (Just NotInstalled),
+	         return Nothing))
 
 succeeds :: String -> [String] -> IO Bool
 succeeds cmd args = (quietProcess >> return True)

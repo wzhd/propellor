@@ -17,7 +17,7 @@ filesUnder d = Pattern (d ++ "/*")
 
 -- | Ensures that the Dest directory exists and has identical contents as
 -- the Src directory.
-syncDir :: Src -> Dest -> Property Linux
+syncDir :: Src -> Dest -> Property (DebianLike + ArchLinux)
 syncDir = syncDirFiltered []
 
 data Filter 
@@ -44,7 +44,7 @@ newtype Pattern = Pattern String
 -- Rsync checks each name to be transferred against its list of Filter
 -- rules, and the first matching one is acted on. If no matching rule
 -- is found, the file is processed.
-syncDirFiltered :: [Filter] -> Src -> Dest -> Property Linux
+syncDirFiltered :: [Filter] -> Src -> Dest -> Property (DebianLike + ArchLinux)
 syncDirFiltered filters src dest = rsync $
 	[ "-av"
 	-- Add trailing '/' to get rsync to sync the Dest directory,
@@ -57,17 +57,8 @@ syncDirFiltered filters src dest = rsync $
 	, "--quiet"
 	] ++ map toRsync filters
 
-rsync :: [String] -> Property Linux
+rsync :: [String] -> Property (DebianLike + ArchLinux)
 rsync ps = cmdProperty "rsync" ps
 	`assume` MadeChange
-	`requires` installed
+	`requires` Apt.installed ["rsync"] `pickOS` Pacman.installed ["rsync"]
 
-installed :: Property Linux
-installed = withOS "package installed" $ \w o -> case o of
-	(Just (System (Debian _ _) _)) ->
-		ensureProperty w $ Apt.installed [ "rsync" ]
-        (Just (System (Buntish _) _)) ->
-		ensureProperty w $ Apt.installed [ "rsync" ]
-        (Just (System (ArchLinux) _)) ->
-		ensureProperty w $ Pacman.installed [ "rsync" ]
-	_ -> unsupportedOS'

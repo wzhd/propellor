@@ -69,15 +69,8 @@ import Data.List.Utils
 import qualified Data.Map as M
 import System.Console.Concurrent
 
-installed :: Property Linux
-installed = withOS "package installed" $ \w o -> case o of
-	(Just (System (Debian _ _) _)) ->
-		ensureProperty w $ Apt.installed [ "docker.io" ]
-        (Just (System (Buntish _) _)) ->
-		ensureProperty w $ Apt.installed [ "docker.io" ]
-        (Just (System (ArchLinux) _)) ->
-		ensureProperty w $ Pacman.installed [ "docker" ]
-	_ -> unsupportedOS'
+installed :: Property (DebianLike + ArchLinux)
+installed = Apt.installed ["docker.io"] `pickOS` Pacman.installed ["docker"]
 
 -- | Configures docker with an authentication file, so that images can be
 -- pushed to index.docker.io. Optional.

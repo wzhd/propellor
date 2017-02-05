@@ -193,19 +193,12 @@ partitioned eep disk (PartTable tabletype parts) = property' desc $ \w -> do
 --
 -- Parted is run in script mode, so it will never prompt for input.
 -- It is asked to use cylinder alignment for the disk.
-parted :: Eep -> FilePath -> [String] -> Property Linux
+parted :: Eep -> FilePath -> [String] -> Property (DebianLike + ArchLinux)
 parted YesReallyDeleteDiskContents disk ps = p `requires` installed
   where
 	p = cmdProperty "parted" ("--script":"--align":"cylinder":disk:ps)
 		`assume` MadeChange
 
--- | Gets parted installed.
-installed :: Property Linux
-installed = withOS "package installed" $ \w o -> case o of
-	(Just (System (Debian _ _) _)) ->
-		ensureProperty w $ Apt.installed ["parted"]
-        (Just (System (Buntish _) _)) ->
-		ensureProperty w $ Apt.installed [ "parted" ]
-        (Just (System (ArchLinux) _)) ->
-		ensureProperty w $ Pacman.installed [ "parted" ]
-	_ -> unsupportedOS'
+installed :: Property (DebianLike + ArchLinux)
+installed = Apt.installed ["parted"] `pickOS` Pacman.installed ["parted"]
+
